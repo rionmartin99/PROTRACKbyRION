@@ -1,12 +1,12 @@
 <!--
-  Version: 1.5.0
-  Date: 2026-09-12 2:40 PM
+  Version: 1.5.1
+  Date: 2026-09-12 2:42 PM
   Change Log:
+  - 2026-09-12: Fix: Resolved duplicate variable declaration in updateProgressPreview() [Fix]
   - 2026-09-12: Feature: Timeframe-scaled daily progress and XP computation for balanced project pacing [New Feature]
   - 2026-09-12: Fix: Removed cloud icon and alert popups for completely silent background sync [Fix]
   - 2026-09-12: Feature: Pre-configured Google Sheets/Drive Web App endpoint and removed setup URL prompt [New Feature]
   - 2026-09-12: Feature: Google Apps Script & Sheets integration with automatic background Drive image storage [New Feature]
-  - 2026-09-12: Feature: Dynamic project durations (31, 25, 20, 15, 10 days) with intelligent milestone scaling [New Feature]
 -->
 
 
@@ -3363,7 +3363,6 @@
             const descLen = journal.done.trim().length;
 
             // Check milestone gate lock first
-            const activeP = getActiveProject();
             const nextMilestone = activeP ? getNextMilestone() : 0;
             const isGated = activeP && (activeP.progress || 0) >= nextMilestone && !isMilestoneValidated(nextMilestone);
 
