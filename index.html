@@ -1,12 +1,12 @@
 <!--
-  Version: 1.8.0
-  Date: 2026-09-12 6:27 PM
+  Version: 1.9.0
+  Date: 2026-09-12 9:30 PM
   Change Log:
+  - 2026-09-12: Feature: Hardened anti-cheat system with capped daily inputs, text entropy filter, concealed ranking mechanics, and cumulative focus hours [New Feature]
   - 2026-09-12: Feature: Dynamic multi-factor Rank evaluation (S, A, B, C) based on streak consistency, schedule pacing, and total focus hours [New Feature]
   - 2026-09-12: Feature: 100% completion system with Stage 5 Ascended Golden Robot, Grand Fanfare, XP Jackpot, and Shareable Project Certificate [New Feature]
   - 2026-09-12: Fix: Corrected project name rendering in Deep Focus HUD from undefined to active.name [Fix]
   - 2026-09-12: Feature: Linked custom app icon, favicon, and PWA manifest for home screen installation [New Feature]
-  - 2026-09-12: Feature: Deep Focus OLED mode with Screen Wake Lock, 5-min inactivity dimmer, system notifications, and haptic sound alerts [New Feature]
 -->
 
 
@@ -2728,10 +2728,9 @@
                             </div>
                             <input type="hidden" id="results-count" value="0">
                             <span class="sub-help"
-                                style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 8px; opacity: 0.8; line-height: 1.2;">These
-                                are specific, measurable accomplishments (e.g., 3D parts printed, code written, or tests
-                                passed). These
-                                are the primary factor for pushing project progress.</span>
+                                style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 8px; opacity: 0.8; line-height: 1.2;">Specific,
+                                measurable accomplishments completed today (e.g., parts printed, code written, or tests
+                                passed; max 10/day).</span>
                         </div>
                         <div class="input-group">
                             <label>Hours Dedicated</label>
@@ -2745,9 +2744,8 @@
                             <input type="hidden" id="hours-worked" value="0">
                             <span class="sub-help"
                                 style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 8px; opacity: 0.8; line-height: 1.2;">Records
-                                total active work time. This can be filled manually or automatically via the Focus
-                                Clock. Hours directly
-                                affect your daily XP multiplier and rating.</span>
+                                active hands-on session time. Enter manually (max 8.0 hrs/day) or track automatically via the Focus
+                                Clock.</span>
                         </div>
                     </div>
                     <div class="input-group">
@@ -2967,9 +2965,9 @@
             <div>
                 <h3>2. Milestones &amp; Hours Dedicated</h3>
                 <p><b>Milestones Accomplished</b> are specific, measurable tasks completed that day (e.g., "3 parts
-                    printed", "motor code tested"). These are the primary driver of project progress. <b>Hours
-                        Dedicated</b> records your total active work time — fill it manually or use the Focus Clock to
-                    auto-capture it. Hours directly affect your daily XP multiplier and your overall project rating.</p>
+                    printed", "motor code tested"). These represent your tangible daily output. <b>Hours
+                        Dedicated</b> records your active work time — fill it manually or use the Focus Clock to
+                    auto-capture it. Consistent daily application and verified milestone output form the foundation of your engineering record.</p>
             </div>
         </div>
 
@@ -3780,16 +3778,44 @@
             document.getElementById('close-setup-btn').style.display = state.projects && state.projects.length > 0 ? 'flex' : 'none';
             showSetup();
         };
+        function validateWorkDescription(text, previousLogs = []) {
+            const trimmed = (text || "").trim();
+            if (trimmed.length < 30) {
+                return { valid: false, message: `Insufficient description (${trimmed.length}/30 chars required)` };
+            }
+            if (/(.)\1{4,}/i.test(trimmed)) {
+                return { valid: false, message: "Spam detected: Please avoid repetitive characters." };
+            }
+            const words = trimmed.toLowerCase().match(/[a-z0-9_-]{2,}/g) || [];
+            const uniqueWords = new Set(words);
+            if (uniqueWords.size < 5) {
+                return { valid: false, message: "Please provide a more descriptive summary (at least 5 distinct words)." };
+            }
+            if (previousLogs && previousLogs.length > 0) {
+                const lastLog = previousLogs[previousLogs.length - 1];
+                const lastDone = (lastLog.journal?.done || "").trim().toLowerCase();
+                if (lastDone && (trimmed.toLowerCase() === lastDone || (lastDone.length >= 30 && trimmed.toLowerCase().includes(lastDone)))) {
+                    return { valid: false, message: "Duplicate entry: Today's log cannot repeat yesterday's description." };
+                }
+            }
+            return { valid: true };
+        }
+
         function calculateSmartProgress(journal, project = null) {
-            const descLen = (journal.done || "").trim().length; 
-            if (descLen < 30) return 0;
+            const trimmed = (journal.done || "").trim();
+            const descValidation = validateWorkDescription(trimmed);
+            if (!descValidation.valid) return 0;
 
             const proj = project || getActiveProject();
             const totalDays = (proj && proj.totalDays) ? proj.totalDays : 31;
             const timeframeScale = 31 / totalDays;
 
-            // Hours are a weak signal — real effort is measured by tasks completed and quality of log
-            let baseProgress = (journal.hours * 0.15) + (journal.results * 0.5);
+            // Clamped values prevent stat-pumping
+            const safeHours = Math.min(8.0, Math.max(0, parseFloat(journal.hours) || 0));
+            const safeResults = Math.min(10, Math.max(0, parseFloat(journal.results) || 0));
+
+            let baseProgress = (safeHours * 0.15) + (safeResults * 0.5);
+            const descLen = trimmed.length;
             if (descLen >= 250) baseProgress += 0.8; 
             else if (descLen >= 100) baseProgress += 0.5; 
             else if (descLen >= 30) baseProgress += 0.2;
@@ -3932,14 +3958,17 @@
         }
         function updateProgressPreview() {
             const activeP = getActiveProject();
-            const journal = { done: document.getElementById('done-today').value, results: parseFloat(document.getElementById('results-count').value || 0), hours: parseFloat(document.getElementById('hours-worked').value || 0) };
+            const journal = { 
+                done: document.getElementById('done-today').value, 
+                results: Math.min(10, Math.max(0, parseFloat(document.getElementById('results-count').value || 0))), 
+                hours: Math.min(8.0, Math.max(0, parseFloat(document.getElementById('hours-worked').value || 0))) 
+            };
             const val = calculateSmartProgress(journal, activeP);
             const display = document.getElementById('smart-progress-val');
             const status = document.getElementById('cheat-status');
             const btn = document.getElementById('submit-log-btn');
 
             if (display) display.innerText = `+${val.toFixed(1)}%`;
-            const descLen = journal.done.trim().length;
 
             // Check milestone gate lock first
             const nextMilestone = activeP ? getNextMilestone() : 0;
@@ -3951,18 +3980,21 @@
                     status.style.color = "var(--warning)";
                 }
                 btn.disabled = true; btn.style.opacity = "0.5";
-            } else if (descLen < 30) {
-                if (status) {
-                    status.innerText = `Insufficient description (${descLen}/30 chars)`;
-                    status.style.color = "var(--error)";
-                }
-                btn.disabled = true; btn.style.opacity = "0.5";
             } else {
-                if (status) {
-                    status.innerText = "Entry requirements met.";
-                    status.style.color = "var(--success)";
+                const descValidation = validateWorkDescription(journal.done, activeP ? activeP.history : []);
+                if (!descValidation.valid) {
+                    if (status) {
+                        status.innerText = descValidation.message;
+                        status.style.color = "var(--error)";
+                    }
+                    btn.disabled = true; btn.style.opacity = "0.5";
+                } else {
+                    if (status) {
+                        status.innerText = "Entry requirements met.";
+                        status.style.color = "var(--success)";
+                    }
+                    btn.disabled = false; btn.style.opacity = "1";
                 }
-                btn.disabled = false; btn.style.opacity = "1";
             }
         }
         ['done-today', 'results-count', 'hours-worked'].forEach(id => document.getElementById(id).addEventListener('input', updateProgressPreview));
@@ -4765,10 +4797,11 @@
                 // Clock Out
                 const elapsed = Math.floor((now - active.clockStartedAt) / 1000);
                 active.clockTotalSeconds = (active.clockTotalSeconds || 0) + elapsed;
+                active.totalClockSeconds = (active.totalClockSeconds || 0) + elapsed;
                 active.clockStartedAt = null;
 
-                // Auto-fill hours worked in log
-                const hours = (active.clockTotalSeconds / 3600).toFixed(1);
+                // Auto-fill hours worked in log (capped at 8.0)
+                const hours = Math.min(8.0, (active.clockTotalSeconds / 3600)).toFixed(1);
                 document.getElementById('hours-worked').value = hours;
                 document.getElementById('hours-display').innerText = hours;
                 updateProgressPreview();
@@ -4962,10 +4995,46 @@
         document.getElementById('log-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const active = getActiveProject();
-            const journal = { done: document.getElementById('done-today').value, results: parseFloat(document.getElementById('results-count').value || 0), hours: parseFloat(document.getElementById('hours-worked').value || 0), stuck: document.getElementById('stuck-on').value };
-            const photo = document.getElementById('photo-preview-img'); if (!photo.src || photo.src.includes('index.html')) { showAlert('📷 Photo Required', 'Visual evidence is required for each log. Tap the camera area to capture your work.'); return; }
-            const inc = calculateSmartProgress(journal, active); if (inc === 0) { showAlert('⚠️ Insufficient Work', 'Add more detail (min 30 chars) or log more hours/tasks to earn progress.'); return; }
-            let next = getNextMilestone(); if (active.progress >= next && !isMilestoneValidated(next)) { showAlert('🔒 Milestone Gate', `Progress is locked at ${next}%. Pass a Peer Review (80%+) to advance.`); return; }
+            if (!active) return;
+
+            // Enforce strictly one log per calendar day
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const aldyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+            if (aldyLogged) {
+                showAlert('⚠️ Already Logged', 'You have already logged your progress for today. Come back tomorrow!');
+                return;
+            }
+
+            const rawHours = parseFloat(document.getElementById('hours-worked').value || 0);
+            const rawResults = parseFloat(document.getElementById('results-count').value || 0);
+            const journal = { 
+                done: document.getElementById('done-today').value.trim(), 
+                results: Math.min(10, Math.max(0, rawResults)), 
+                hours: Math.min(8.0, Math.max(0, rawHours)), 
+                stuck: document.getElementById('stuck-on').value.trim() 
+            };
+
+            const descCheck = validateWorkDescription(journal.done, active.history);
+            if (!descCheck.valid) {
+                showAlert('⚠️ Invalid Entry', descCheck.message);
+                return;
+            }
+
+            const photo = document.getElementById('photo-preview-img'); 
+            if (!photo.src || photo.src.includes('index.html')) { 
+                showAlert('📷 Photo Required', 'Visual evidence is required for each log. Tap the camera area to capture your work.'); 
+                return; 
+            }
+            const inc = calculateSmartProgress(journal, active); 
+            if (inc === 0) { 
+                showAlert('⚠️ Insufficient Work', 'Add more detail or log your hours and tasks to earn progress.'); 
+                return; 
+            }
+            let next = getNextMilestone(); 
+            if (active.progress >= next && !isMilestoneValidated(next)) { 
+                showAlert('🔒 Milestone Gate', `Progress is locked at ${next}%. Pass a Peer Review (80%+) to advance.`); 
+                return; 
+            }
             const imprinted = await imprintImage(photo.src, journal.done, journal.stuck);
             const projectDay = getProjectDay();
             await DB.save(active.id + "_" + projectDay, imprinted);
@@ -5150,7 +5219,13 @@
                 const inputId = btn.dataset.input; const dir = parseFloat(btn.dataset.dir);
                 const input = document.getElementById(inputId);
                 const display = document.getElementById(inputId.replace('-count', '-display').replace('-worked', '-display'));
-                let val = parseFloat(input.value) + dir; if (val < 0) val = 0;
+                let val = parseFloat(input.value) + dir; 
+                if (val < 0) val = 0;
+                if (inputId === 'hours-worked') {
+                    if (val > 8.0) val = 8.0;
+                } else if (inputId === 'results-count') {
+                    if (val > 10) val = 10;
+                }
                 input.value = val; if (display) display.innerText = inputId === 'hours-worked' ? val.toFixed(1) : val;
                 SoundEngine.playStepper(); updateProgressPreview();
             });
@@ -5312,8 +5387,11 @@
             }
 
             // 3. Focus Hours Invested (30 pts max)
-            const journalHours = (active.history || []).reduce((acc, h) => acc + (parseFloat(h.journal?.hours) || 0), 0);
-            const clockHours = ((active.clockTotalSeconds || 0) / 3600);
+            // Clamp daily journal hours to max 8.0 hrs/day to prevent historic spoofing
+            const journalHours = (active.history || []).reduce((acc, h) => acc + Math.min(8.0, (parseFloat(h.journal?.hours) || 0)), 0);
+            const cumulativeClockHours = ((active.totalClockSeconds || 0) / 3600);
+            const sessionClockHours = ((active.clockTotalSeconds || 0) / 3600);
+            const clockHours = Math.max(cumulativeClockHours, sessionClockHours);
             const totalHours = Math.max(journalHours, clockHours);
 
             let focusScore = 18;
@@ -5497,12 +5575,12 @@
             ctx.strokeRect(35, 175, w - 70, 105);
 
             // Stat Columns
-            const hoursLogged = ((active.clockTotalSeconds || 0) / 3600).toFixed(1);
+            const hoursLogged = (rankObj.breakdown && rankObj.breakdown.totalHours) ? rankObj.breakdown.totalHours : '0.0';
             const daysLogged = (active.history ? active.history.length : 0);
             const stats = [
                 { val: `${Math.round(active.progress || 100)}%`, lbl: 'COMPLETION', color: '#ffd700' },
                 { val: `${daysLogged} / ${active.totalDays || 31}`, lbl: 'DAYS ACTIVE', color: '#ffd700' },
-                { val: `${hoursLogged} HRS`, lbl: 'FOCUS CLOCK', color: '#ffd700' },
+                { val: `${hoursLogged} HRS`, lbl: 'TOTAL HOURS', color: '#ffd700' },
                 { val: rankObj.rank, lbl: 'EVALUATION', color: rankObj.color }
             ];
 
