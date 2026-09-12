@@ -1,12 +1,12 @@
 <!--
-  Version: 1.4.1
-  Date: 2026-09-12 2:18 PM
+  Version: 1.4.2
+  Date: 2026-09-12 2:30 PM
   Change Log:
+  - 2026-09-12: Fix: Removed cloud icon and alert popups for completely silent background sync [Fix]
   - 2026-09-12: Feature: Pre-configured Google Sheets/Drive Web App endpoint and removed setup URL prompt [New Feature]
   - 2026-09-12: Feature: Google Apps Script & Sheets integration with automatic background Drive image storage [New Feature]
   - 2026-09-12: Feature: Dynamic project durations (31, 25, 20, 15, 10 days) with intelligent milestone scaling [New Feature]
   - 2026-04-11: Feature: Global XP Pool (Shared currency across projects) [New Feature]
-  - 2026-04-11: Feature: Added Equip/Unequip toggle for purchased accessories [New Feature]
 -->
 
 
@@ -661,28 +661,6 @@
 
         .duration-milestone-preview b {
             color: var(--accent-lime);
-        }
-
-        .cloud-sync-indicator {
-            transition: all 0.3s ease;
-        }
-
-        .cloud-sync-indicator.syncing i {
-            color: var(--accent-blue);
-            animation: cloudPulse 1s infinite alternate ease-in-out;
-        }
-
-        .cloud-sync-indicator.success i {
-            color: var(--accent-lime);
-        }
-
-        .cloud-sync-indicator.error i {
-            color: var(--warning);
-        }
-
-        @keyframes cloudPulse {
-            from { transform: scale(0.92); opacity: 0.6; }
-            to { transform: scale(1.12); opacity: 1; }
         }
 
         .tutorial-item p {
@@ -2050,10 +2028,6 @@
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
-                    <div id="cloud-sync-indicator" class="btn-icon cloud-sync-indicator idle" title="Cloud Sync Ready"
-                        style="padding: 8px; border-radius: 12px; background: var(--secondary-bg); color: var(--text-secondary); cursor: pointer; font-size: 0.9rem;">
-                        <i class="fas fa-cloud"></i>
-                    </div>
                     <div id="tutorial-btn" class="btn-icon"
                         style="padding: 8px; border-radius: 12px; background: var(--secondary-bg); color: var(--text-secondary); cursor: pointer; font-size: 0.9rem;">
                         <i class="fas fa-info-circle"></i>
@@ -2911,44 +2885,18 @@
             isConfigured() {
                 return true;
             },
-            setStatus(type, tooltip) {
-                const el = document.getElementById('cloud-sync-indicator');
-                if (!el) return;
-                el.className = 'cloud-sync-indicator ' + type;
-                if (tooltip) el.title = tooltip;
-                if (type === 'success') {
-                    setTimeout(() => {
-                        if (el.classList.contains('success')) {
-                            el.className = 'cloud-sync-indicator';
-                            el.title = this.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Connected';
-                        }
-                    }, 4000);
-                } else if (type === 'error') {
-                    setTimeout(() => {
-                        if (el.classList.contains('error')) {
-                            el.className = 'cloud-sync-indicator';
-                            el.title = this.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Connected';
-                        }
-                    }, 5000);
-                }
-            },
             dispatch(action, data) {
                 if (!this.isConfigured()) {
-                    return Promise.resolve({ status: 'ignored', message: 'Cloud sync not configured' });
+                    return Promise.resolve({ status: 'ignored' });
                 }
-                this.setStatus('syncing', 'Syncing with Google Cloud...');
 
                 // Native Google Apps Script execution
                 if (this.isGasEnvironment()) {
                     return new Promise((resolve) => {
                         const runner = google.script.run
-                            .withSuccessHandler((res) => {
-                                CloudSync.setStatus('success', 'Google Cloud Sync complete');
-                                resolve(res);
-                            })
+                            .withSuccessHandler((res) => resolve(res))
                             .withFailureHandler((err) => {
                                 console.warn('[CloudSync] GAS run failed:', err);
-                                CloudSync.setStatus('error', 'Cloud sync error: ' + (err && err.message ? err.message : err));
                                 resolve({ status: 'error', error: err });
                             });
 
@@ -2968,11 +2916,9 @@
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({ action, data })
                 }).then(() => {
-                    this.setStatus('success', 'Google Cloud Sync complete');
                     return { status: 'success' };
                 }).catch(err => {
                     console.warn('[CloudSync] Web App POST failed:', err);
-                    this.setStatus('error', 'Cloud sync network failure');
                     return { status: 'error', error: err };
                 });
             },
@@ -3153,7 +3099,6 @@
             }
             updateUI();
             initTimers();
-            CloudSync.setStatus('idle', CloudSync.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Connected');
         }
         function saveState() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -4363,16 +4308,6 @@
                 const nextKey = Object.keys(goals).map(Number).sort((a, b) => a - b).find(p => p > currentProgress && goals[p].isMain);
                 if (nextKey) showBadgeToast(goals[nextKey].title);
             };
-        }
-        const syncIndicator = document.getElementById('cloud-sync-indicator');
-        if (syncIndicator) {
-            syncIndicator.addEventListener('click', () => {
-                if (CloudSync.isGasEnvironment()) {
-                    showAlert('☁️ Cloud Sync Active', 'ProTrack is running directly in Google Apps Script! Logs, milestones, and BOM inventory sync to Google Sheets, and photos are automatically saved to Google Drive.');
-                } else {
-                    showAlert('☁️ Cloud Sync Connected', 'ProTrack is connected to Google Sheets & Google Drive!\n\nAll logs, project progress, milestones, BOM inventory, and imprinted photos are automatically synchronized in the background.');
-                }
-            });
         }
 
         const dlBtn = document.getElementById('download-photo-btn');
