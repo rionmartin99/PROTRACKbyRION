@@ -1,12 +1,12 @@
 <!--
-  Version: 1.4.2
-  Date: 2026-09-12 2:30 PM
+  Version: 1.5.0
+  Date: 2026-09-12 2:40 PM
   Change Log:
+  - 2026-09-12: Feature: Timeframe-scaled daily progress and XP computation for balanced project pacing [New Feature]
   - 2026-09-12: Fix: Removed cloud icon and alert popups for completely silent background sync [Fix]
   - 2026-09-12: Feature: Pre-configured Google Sheets/Drive Web App endpoint and removed setup URL prompt [New Feature]
   - 2026-09-12: Feature: Google Apps Script & Sheets integration with automatic background Drive image storage [New Feature]
   - 2026-09-12: Feature: Dynamic project durations (31, 25, 20, 15, 10 days) with intelligent milestone scaling [New Feature]
-  - 2026-04-11: Feature: Global XP Pool (Shared currency across projects) [New Feature]
 -->
 
 
@@ -3201,12 +3201,25 @@
             document.getElementById('close-setup-btn').style.display = state.projects && state.projects.length > 0 ? 'flex' : 'none';
             showSetup();
         };
-        function calculateSmartProgress(journal) {
-            const descLen = (journal.done || "").trim().length; if (descLen < 30) return 0;
+        function calculateSmartProgress(journal, project = null) {
+            const descLen = (journal.done || "").trim().length; 
+            if (descLen < 30) return 0;
+
+            const proj = project || getActiveProject();
+            const totalDays = (proj && proj.totalDays) ? proj.totalDays : 31;
+            const timeframeScale = 31 / totalDays;
+
             // Hours are a weak signal — real effort is measured by tasks completed and quality of log
-            let progress = (journal.hours * 0.15) + (journal.results * 0.5);
-            if (descLen >= 250) progress += 0.8; else if (descLen >= 100) progress += 0.5; else if (descLen >= 30) progress += 0.2;
-            return Math.min(6, Math.max(0, progress));
+            let baseProgress = (journal.hours * 0.15) + (journal.results * 0.5);
+            if (descLen >= 250) baseProgress += 0.8; 
+            else if (descLen >= 100) baseProgress += 0.5; 
+            else if (descLen >= 30) baseProgress += 0.2;
+
+            // Scale progress and daily cap proportionally to the chosen timeframe
+            const scaledProgress = baseProgress * timeframeScale;
+            const maxCap = 6 * timeframeScale;
+
+            return Math.min(maxCap, Math.max(0, scaledProgress));
         }
 
         function updateAvatar() {
@@ -3339,8 +3352,9 @@
             return completed && completed.rating >= 80;
         }
         function updateProgressPreview() {
+            const activeP = getActiveProject();
             const journal = { done: document.getElementById('done-today').value, results: parseFloat(document.getElementById('results-count').value || 0), hours: parseFloat(document.getElementById('hours-worked').value || 0) };
-            const val = calculateSmartProgress(journal);
+            const val = calculateSmartProgress(journal, activeP);
             const display = document.getElementById('smart-progress-val');
             const status = document.getElementById('cheat-status');
             const btn = document.getElementById('submit-log-btn');
@@ -4101,7 +4115,7 @@
             const active = getActiveProject();
             const journal = { done: document.getElementById('done-today').value, results: parseFloat(document.getElementById('results-count').value || 0), hours: parseFloat(document.getElementById('hours-worked').value || 0), stuck: document.getElementById('stuck-on').value };
             const photo = document.getElementById('photo-preview-img'); if (!photo.src || photo.src.includes('index.html')) { showAlert('📷 Photo Required', 'Visual evidence is required for each log. Tap the camera area to capture your work.'); return; }
-            const inc = calculateSmartProgress(journal); if (inc === 0) { showAlert('⚠️ Insufficient Work', 'Add more detail (min 30 chars) or log more hours/tasks to earn progress.'); return; }
+            const inc = calculateSmartProgress(journal, active); if (inc === 0) { showAlert('⚠️ Insufficient Work', 'Add more detail (min 30 chars) or log more hours/tasks to earn progress.'); return; }
             let next = getNextMilestone(); if (active.progress >= next && !isMilestoneValidated(next)) { showAlert('🔒 Milestone Gate', `Progress is locked at ${next}%. Pass a Peer Review (80%+) to advance.`); return; }
             const imprinted = await imprintImage(photo.src, journal.done, journal.stuck);
             const projectDay = getProjectDay();
