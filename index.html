@@ -1,12 +1,12 @@
 <!--
-  Version: 1.7.0
-  Date: 2026-09-12 4:52 PM
+  Version: 1.8.0
+  Date: 2026-09-12 6:27 PM
   Change Log:
+  - 2026-09-12: Feature: Dynamic multi-factor Rank evaluation (S, A, B, C) based on streak consistency, schedule pacing, and total focus hours [New Feature]
   - 2026-09-12: Feature: 100% completion system with Stage 5 Ascended Golden Robot, Grand Fanfare, XP Jackpot, and Shareable Project Certificate [New Feature]
   - 2026-09-12: Fix: Corrected project name rendering in Deep Focus HUD from undefined to active.name [Fix]
   - 2026-09-12: Feature: Linked custom app icon, favicon, and PWA manifest for home screen installation [New Feature]
   - 2026-09-12: Feature: Deep Focus OLED mode with Screen Wake Lock, 5-min inactivity dimmer, system notifications, and haptic sound alerts [New Feature]
-  - 2026-09-12: Fix: Resolved duplicate variable declaration in updateProgressPreview() [Fix]
 -->
 
 
@@ -5267,9 +5267,122 @@
             }
         };
 
+        function calculateProjectRank(active) {
+            if (!active) active = getActiveProject();
+            if (!active) return { rank: 'S-RANK', letter: 'S', score: 100, color: '#ffd700', desc: 'Elite Master', breakdown: { totalHours: '0.0', daysElapsed: 1 } };
+
+            const totalDays = parseInt(active.totalDays) || 31;
+            
+            // 1. Schedule Pacing (35 pts max)
+            let daysElapsed = totalDays;
+            if (active.startDate) {
+                const start = new Date(active.startDate);
+                start.setHours(0, 0, 0, 0);
+                const end = active.completedDate ? new Date(active.completedDate) : new Date();
+                end.setHours(0, 0, 0, 0);
+                daysElapsed = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+            }
+            
+            let pacingScore = 30; // on-time default
+            const diff = totalDays - daysElapsed;
+            if (diff >= 2) {
+                pacingScore = 35; // Ahead of schedule
+            } else if (diff >= 0) {
+                pacingScore = 30; // On time
+            } else if (diff >= -3) {
+                pacingScore = 22; // Minor delay (1-3 days late)
+            } else {
+                pacingScore = 14; // Major delay (4+ days late)
+            }
+
+            // 2. Consistency & Streak (35 pts max)
+            const historyCount = (active.history || []).length;
+            const streak = active.streak || 0;
+            const consistencyRatio = totalDays > 0 ? (historyCount / totalDays) : 1;
+
+            let consistencyScore = 20;
+            if (consistencyRatio >= 0.8 || streak >= 15) {
+                consistencyScore = 35;
+            } else if (consistencyRatio >= 0.6 || streak >= 10) {
+                consistencyScore = 28;
+            } else if (consistencyRatio >= 0.4 || streak >= 5) {
+                consistencyScore = 20;
+            } else {
+                consistencyScore = 12;
+            }
+
+            // 3. Focus Hours Invested (30 pts max)
+            const journalHours = (active.history || []).reduce((acc, h) => acc + (parseFloat(h.journal?.hours) || 0), 0);
+            const clockHours = ((active.clockTotalSeconds || 0) / 3600);
+            const totalHours = Math.max(journalHours, clockHours);
+
+            let focusScore = 18;
+            if (totalHours >= 40) {
+                focusScore = 30;
+            } else if (totalHours >= 25) {
+                focusScore = 24;
+            } else if (totalHours >= 12) {
+                focusScore = 18;
+            } else {
+                focusScore = 10;
+            }
+
+            const totalScore = Math.min(100, Math.max(0, pacingScore + consistencyScore + focusScore));
+
+            let letter = 'S';
+            let rank = 'S-RANK';
+            let color = '#ffd700'; // Gold
+            let desc = 'Elite Master';
+
+            if (totalScore >= 90) {
+                letter = 'S';
+                rank = 'S-RANK';
+                color = '#ffd700';
+                desc = 'Elite Master';
+            } else if (totalScore >= 75) {
+                letter = 'A';
+                rank = 'A-RANK';
+                color = '#beff33'; // Lime
+                desc = 'High Honors';
+            } else if (totalScore >= 60) {
+                letter = 'B';
+                rank = 'B-RANK';
+                color = '#00f2fe'; // Cyber Cyan
+                desc = 'Proficient';
+            } else {
+                letter = 'C';
+                rank = 'C-RANK';
+                color = '#a0aec0'; // Silver
+                desc = 'Completed';
+            }
+
+            return {
+                score: totalScore,
+                letter,
+                rank,
+                color,
+                desc,
+                breakdown: {
+                    pacing: pacingScore,
+                    consistency: consistencyScore,
+                    focus: focusScore,
+                    totalHours: totalHours.toFixed(1),
+                    daysElapsed
+                }
+            };
+        }
+
         function trigger100Celebration(active) {
             if (!active) active = getActiveProject();
             if (!active) return;
+
+            // Compute dynamic rank & update celebration overlay
+            const rankObj = calculateProjectRank(active);
+            const rankEl = document.getElementById('celebration-rank-val');
+            if (rankEl) {
+                rankEl.innerText = rankObj.rank;
+                rankEl.style.color = rankObj.color;
+            }
 
             // Grand Fanfare Audio
             if (SoundEngine && SoundEngine.playGrandVictory) {
@@ -5319,6 +5432,8 @@
             const ctx = canvas.getContext('2d');
             const w = canvas.width;
             const h = canvas.height;
+
+            const rankObj = calculateProjectRank(active);
 
             // Background
             ctx.fillStyle = '#060609';
@@ -5385,17 +5500,17 @@
             const hoursLogged = ((active.clockTotalSeconds || 0) / 3600).toFixed(1);
             const daysLogged = (active.history ? active.history.length : 0);
             const stats = [
-                { val: `${Math.round(active.progress || 100)}%`, lbl: 'COMPLETION' },
-                { val: `${daysLogged} / ${active.totalDays || 31}`, lbl: 'DAYS ACTIVE' },
-                { val: `${hoursLogged} HRS`, lbl: 'FOCUS CLOCK' },
-                { val: 'S-RANK', lbl: 'EVALUATION' }
+                { val: `${Math.round(active.progress || 100)}%`, lbl: 'COMPLETION', color: '#ffd700' },
+                { val: `${daysLogged} / ${active.totalDays || 31}`, lbl: 'DAYS ACTIVE', color: '#ffd700' },
+                { val: `${hoursLogged} HRS`, lbl: 'FOCUS CLOCK', color: '#ffd700' },
+                { val: rankObj.rank, lbl: 'EVALUATION', color: rankObj.color }
             ];
 
             const colWidth = (w - 70) / stats.length;
             stats.forEach((s, idx) => {
                 const xPos = 35 + (idx * colWidth) + (colWidth / 2);
                 ctx.textAlign = 'center';
-                ctx.fillStyle = '#ffd700';
+                ctx.fillStyle = s.color || '#ffd700';
                 ctx.font = '900 18px sans-serif';
                 ctx.fillText(s.val, xPos, 222);
 
@@ -5414,7 +5529,7 @@
 
             ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
             ctx.font = '9px sans-serif';
-            ctx.fillText('Robotics and Innovations Oriented Nexus // ProTrack Protocol v1.7', 35, 355);
+            ctx.fillText('Robotics and Innovations Oriented Nexus // ProTrack Protocol v1.8', 35, 355);
 
             // Golden Stamp
             ctx.save();
@@ -5466,7 +5581,8 @@
         function copyCertificateShareText() {
             const proj = activeCertificateProject || getActiveProject();
             const name = proj ? proj.name : 'Robotics Project';
-            const text = `🏆 100% COMPLETE! Just crossed the finish line on "${name}" with ProTrack. S-Rank pacing achieved, full focus hours logged! 🚀⚡ #Robotics #Maker #ProTrack`;
+            const rankObj = calculateProjectRank(proj);
+            const text = `🏆 100% COMPLETE! Just crossed the finish line on "${name}" with ProTrack. Earned ${rankObj.rank} (${rankObj.desc}) with ${rankObj.breakdown.totalHours || '60+'} hrs logged! 🚀⚡ #Robotics #Maker #Engineering #ProTrack`;
             navigator.clipboard.writeText(text).then(() => {
                 showAlert('📋 Copied to Clipboard', 'Certificate announcement text copied! Ready to post on LinkedIn / X / Discord.');
             }).catch(() => {
@@ -5480,6 +5596,8 @@
                 active.completed = true;
                 active.completionCelebrated = true;
                 active.completedDate = active.completedDate || new Date().toISOString();
+                const rankObj = calculateProjectRank(active);
+                active.rank = rankObj.letter;
                 state.globalXP = (state.globalXP || 0) + 2500;
                 
                 // Unlock singularity-core in relics
@@ -5570,7 +5688,7 @@
                 </div>
                 <div style="width: 1px; height: 32px; background: rgba(255,255,255,0.1);"></div>
                 <div class="xp-stat">
-                    <span class="val" style="color: var(--accent-lime,#beff33);">S-RANK</span>
+                    <span id="celebration-rank-val" class="val" style="color: var(--accent-lime,#beff33);">S-RANK</span>
                     <span class="lbl">Evaluation</span>
                 </div>
             </div>
