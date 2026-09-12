@@ -1,12 +1,12 @@
 <!--
-  Version: 1.5.1
-  Date: 2026-09-12 2:42 PM
+  Version: 1.6.0
+  Date: 2026-09-12 3:05 PM
   Change Log:
+  - 2026-09-12: Feature: Deep Focus OLED mode with Screen Wake Lock, 5-min inactivity dimmer, system notifications, and haptic sound alerts [New Feature]
   - 2026-09-12: Fix: Resolved duplicate variable declaration in updateProgressPreview() [Fix]
   - 2026-09-12: Feature: Timeframe-scaled daily progress and XP computation for balanced project pacing [New Feature]
   - 2026-09-12: Fix: Removed cloud icon and alert popups for completely silent background sync [Fix]
   - 2026-09-12: Feature: Pre-configured Google Sheets/Drive Web App endpoint and removed setup URL prompt [New Feature]
-  - 2026-09-12: Feature: Google Apps Script & Sheets integration with automatic background Drive image storage [New Feature]
 -->
 
 
@@ -1409,6 +1409,283 @@
             transition: width 1s linear;
         }
 
+        /* Deep Focus OLED HUD */
+        .deep-focus-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99998;
+            background: #000000;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            cursor: pointer;
+            animation: dfFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            touch-action: manipulation;
+        }
+
+        .deep-focus-overlay.hidden {
+            display: none;
+        }
+
+        @keyframes dfFadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .df-glow-ambient {
+            position: absolute;
+            width: 320px;
+            height: 320px;
+            background: radial-gradient(circle, rgba(190, 255, 51, 0.04) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .df-exit-btn {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.6);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            z-index: 2;
+        }
+
+        .df-exit-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+        }
+
+        .df-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+            max-height: 520px;
+            padding: 40px 24px;
+            text-align: center;
+            z-index: 1;
+        }
+
+        .df-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .df-live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 14px;
+            border-radius: 999px;
+            background: rgba(190, 255, 51, 0.08);
+            border: 1px solid rgba(190, 255, 51, 0.25);
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: var(--accent-lime, #beff33);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .df-pulse-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-lime, #beff33);
+            box-shadow: 0 0 10px var(--accent-lime, #beff33);
+            animation: dfPulse 2s infinite ease-in-out;
+        }
+
+        @keyframes dfPulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.85); }
+            50% { opacity: 1; transform: scale(1.25); }
+        }
+
+        .df-project-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 0.5px;
+            max-width: 280px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .df-timer-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: auto 0;
+        }
+
+        .df-mode-label {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.45);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .df-timer-digits {
+            font-size: clamp(3.8rem, 16vw, 6.2rem);
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -2px;
+            color: #ffffff;
+            text-shadow: 0 0 25px rgba(190, 255, 51, 0.25);
+            line-height: 1;
+        }
+
+        .df-secondary-digits {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.35);
+            letter-spacing: 1px;
+            margin-top: 14px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .df-footer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .df-hint {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.25);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            animation: dfPulse 3s infinite ease-in-out;
+        }
+
+        /* Deep Focus Start Prompt Toast */
+        .df-prompt {
+            position: fixed;
+            bottom: 84px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 99990;
+            width: calc(100% - 36px);
+            max-width: 400px;
+            animation: dfPromptSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            pointer-events: auto;
+        }
+
+        .df-prompt.hidden {
+            display: none;
+        }
+
+        @keyframes dfPromptSlide {
+            from { opacity: 0; transform: translate(-50%, 20px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+
+        .df-prompt-inner {
+            background: rgba(18, 18, 22, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(190, 255, 51, 0.3);
+            border-radius: 18px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(190, 255, 51, 0.1);
+        }
+
+        .df-prompt-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(190, 255, 51, 0.15);
+            border: 1px solid rgba(190, 255, 51, 0.3);
+            color: var(--accent-lime, #beff33);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .df-prompt-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .df-prompt-title {
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 0.3px;
+        }
+
+        .df-prompt-desc {
+            font-size: 0.68rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 1px;
+        }
+
+        .df-prompt-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .df-btn-primary {
+            background: var(--accent-lime, #beff33);
+            color: #000000;
+            border: none;
+            padding: 7px 13px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .df-btn-primary:active {
+            transform: scale(0.96);
+        }
+
+        .df-btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 7px 11px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .df-btn-secondary:active {
+            transform: scale(0.96);
+        }
+
         /* Project Switcher Styles */
         .project-hub {
             margin-bottom: 24px;
@@ -2101,6 +2378,14 @@
                     <button id="pomo-btn" class="timer-btn">Start Cycle</button>
                     <div id="pomo-progress" class="timer-progress"></div>
                 </div>
+            </div>
+
+            <!-- Deep Focus Quick Trigger Bar -->
+            <div style="display: flex; justify-content: flex-end; margin-top: -14px; margin-bottom: 20px;">
+                <button id="manual-deep-focus-btn" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(190, 255, 51, 0.25); border-radius: 10px; color: var(--text-secondary); font-size: 0.7rem; font-weight: 700; padding: 6px 14px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.color='#beff33';this.style.borderColor='rgba(190,255,51,0.5)'" onmouseout="this.style.color='var(--text-secondary)';this.style.borderColor='rgba(190,255,51,0.25)'">
+                    <i class="fas fa-moon" style="color: var(--accent-lime); font-size: 0.7rem;"></i>
+                    <span>Deep Focus</span>
+                </button>
             </div>
 
             <!-- Project Hub -->
@@ -3022,7 +3307,23 @@
             playClose() { [660, 520, 390].forEach((f, i) => setTimeout(() => this.play(f, 'sine', 0.10, 0.025), i * 45)); },
             playStepper() { this.play(1100, 'triangle', 0.07, 0.04); },
             playSelect() { this.play(740, 'sine', 0.09, 0.04); setTimeout(() => this.play(1050, 'sine', 0.07, 0.03), 55); },
-            playMarket() { [330, 440, 550, 660].forEach((f, i) => setTimeout(() => this.play(f, 'sine', 0.16, 0.035), i * 55)); }
+            playMarket() { [330, 440, 550, 660].forEach((f, i) => setTimeout(() => this.play(f, 'sine', 0.16, 0.035), i * 55)); },
+            playPomoAlarm() {
+                if (state.muted) return;
+                this.init();
+                const notes = [587.33, 880, 1174.66, 880, 1174.66, 1760];
+                notes.forEach((f, i) => {
+                    setTimeout(() => {
+                        this.play(f, 'sine', 0.22, 0.09);
+                        this.play(f * 0.5, 'triangle', 0.26, 0.05);
+                    }, i * 140);
+                });
+            },
+            vibrate(pattern) {
+                if ('vibrate' in navigator) {
+                    try { navigator.vibrate(pattern || [400, 200, 400, 200, 800]); } catch (e) {}
+                }
+            }
         };
         const STORAGE_KEY = 'proTrackState';
         async function loadState() {
@@ -3864,7 +4165,233 @@
                 document.getElementById('close-setup-btn').style.display = 'flex';
                 document.getElementById('setup-page').classList.remove('hidden');
             };
+
+            DeepFocus.init();
         }
+
+        // ==========================================
+        // SCREEN WAKE LOCK & BACKGROUND HELPERS
+        // ==========================================
+        const WakeLockManager = {
+            sentinel: null,
+            async request() {
+                if ('wakeLock' in navigator) {
+                    try {
+                        if (!this.sentinel) {
+                            this.sentinel = await navigator.wakeLock.request('screen');
+                            this.sentinel.addEventListener('release', () => {
+                                this.sentinel = null;
+                            });
+                        }
+                    } catch (e) {
+                        console.log('Wake Lock request error:', e);
+                    }
+                }
+            },
+            async release() {
+                if (this.sentinel) {
+                    try {
+                        await this.sentinel.release();
+                    } catch (e) {}
+                    this.sentinel = null;
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && isAnyTimerActive()) {
+                WakeLockManager.request();
+            }
+        });
+
+        function isAnyTimerActive() {
+            const active = getActiveProject();
+            const clockActive = !!(active && active.clockStartedAt);
+            const pomoActive = (state.timers && state.timers.pomo && state.timers.pomo.status === 'running');
+            return clockActive || pomoActive;
+        }
+
+        function requestNotificationPermissionSafe() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                try {
+                    Notification.requestPermission().catch(() => {});
+                } catch (e) {}
+            }
+        }
+
+        function triggerCompletionNotification(type) {
+            const isWorkFinished = (type === 'work');
+            const title = isWorkFinished ? '🏆 Pomodoro Complete!' : '⚡ Break Complete!';
+            const body = isWorkFinished 
+                ? 'Great focus session! Take a well-earned 5-minute break.' 
+                : 'Break is over! Ready to lock back into deep focus?';
+
+            // 1. Audio Fanfare
+            SoundEngine.playPomoAlarm();
+
+            // 2. Haptic Vibration
+            SoundEngine.vibrate([400, 200, 400, 200, 800]);
+
+            // 3. System Lock-Screen Notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    new Notification(title, {
+                        body: body,
+                        icon: 'favicon.ico',
+                        badge: 'favicon.ico',
+                        tag: 'protrack-pomo-notification',
+                        renotify: true,
+                        vibrate: [400, 200, 400, 200, 800]
+                    });
+                } catch (e) {}
+            }
+        }
+
+        // ==========================================
+        // DEEP FOCUS MANAGER
+        // ==========================================
+        const DeepFocus = {
+            isActive: false,
+            lastActivityTime: Date.now(),
+            promptTimeout: null,
+            inactivityCheckInterval: null,
+
+            init() {
+                const recordActivity = () => {
+                    this.lastActivityTime = Date.now();
+                };
+                ['mousemove', 'mousedown', 'touchstart', 'touchmove', 'keydown', 'scroll'].forEach(evt => {
+                    window.addEventListener(evt, recordActivity, { passive: true });
+                });
+
+                window.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.isActive) {
+                        this.exit();
+                    }
+                });
+
+                // Check 5-minute inactivity (300,000 ms) every 5 seconds
+                if (this.inactivityCheckInterval) clearInterval(this.inactivityCheckInterval);
+                this.inactivityCheckInterval = setInterval(() => {
+                    const idleMs = Date.now() - this.lastActivityTime;
+                    if (idleMs >= 300000 && isAnyTimerActive() && !this.isActive) {
+                        this.enter();
+                    }
+                }, 5000);
+
+                const manualBtn = document.getElementById('manual-deep-focus-btn');
+                if (manualBtn) manualBtn.onclick = () => this.enter();
+
+                const actBtn = document.getElementById('df-prompt-activate-btn');
+                if (actBtn) actBtn.onclick = () => {
+                    this.dismissPrompt();
+                    this.enter();
+                };
+
+                const disBtn = document.getElementById('df-prompt-dismiss-btn');
+                if (disBtn) disBtn.onclick = () => {
+                    this.dismissPrompt();
+                };
+            },
+
+            onTimerStart() {
+                WakeLockManager.request();
+                requestNotificationPermissionSafe();
+                this.showPrompt();
+            },
+
+            showPrompt() {
+                if (this.isActive) return;
+                const prompt = document.getElementById('deep-focus-prompt');
+                if (!prompt) return;
+                prompt.classList.remove('hidden');
+                if (this.promptTimeout) clearTimeout(this.promptTimeout);
+                this.promptTimeout = setTimeout(() => {
+                    this.dismissPrompt();
+                }, 8000);
+            },
+
+            dismissPrompt() {
+                const prompt = document.getElementById('deep-focus-prompt');
+                if (prompt) prompt.classList.add('hidden');
+                if (this.promptTimeout) clearTimeout(this.promptTimeout);
+            },
+
+            enter() {
+                this.dismissPrompt();
+                this.isActive = true;
+
+                // Auto-start Pomodoro if neither clock nor pomo is active
+                const active = getActiveProject();
+                const clockActive = !!(active && active.clockStartedAt);
+                const pomoActive = (state.timers && state.timers.pomo && state.timers.pomo.status === 'running');
+                if (!clockActive && !pomoActive) {
+                    state.timers.pomo.status = 'running';
+                    state.timers.pomo.startedAt = Date.now();
+                    saveState();
+                }
+
+                const hud = document.getElementById('deep-focus-hud');
+                if (hud) hud.classList.remove('hidden');
+                WakeLockManager.request();
+                requestNotificationPermissionSafe();
+                this.updateDisplay();
+                SoundEngine.playSelect();
+            },
+
+            exit() {
+                if (!this.isActive) return;
+                this.isActive = false;
+                const hud = document.getElementById('deep-focus-hud');
+                if (hud) hud.classList.add('hidden');
+                this.lastActivityTime = Date.now();
+                SoundEngine.playTick();
+            },
+
+            updateDisplay() {
+                if (!this.isActive) return;
+                const active = getActiveProject();
+                const titleEl = document.getElementById('df-project-name');
+                if (titleEl) titleEl.innerText = active ? active.title : "No Active Project";
+
+                const modeEl = document.getElementById('df-mode-label');
+                const primaryEl = document.getElementById('df-primary-timer');
+                const secondaryEl = document.getElementById('df-secondary-timer');
+
+                const isPomoRunning = (state.timers && state.timers.pomo && state.timers.pomo.status === 'running');
+                const isClockRunning = !!(active && active.clockStartedAt);
+
+                if (isPomoRunning) {
+                    const elapsed = Math.floor((Date.now() - state.timers.pomo.startedAt) / 1000);
+                    const remaining = Math.max(0, state.timers.pomo.duration - elapsed);
+                    const isWork = (state.timers.pomo.type === 'work');
+                    if (modeEl) modeEl.innerText = isWork ? "POMODORO WORK" : "SHORT BREAK";
+                    if (primaryEl) primaryEl.innerText = formatTimeMMSS(remaining);
+
+                    if (isClockRunning && secondaryEl) {
+                        const clockElapsed = Math.floor((Date.now() - active.clockStartedAt) / 1000);
+                        const clockTotal = (active.clockTotalSeconds || 0) + clockElapsed;
+                        secondaryEl.innerText = `Clocked In: ${formatTimeHHMMSS(clockTotal)}`;
+                        secondaryEl.style.display = 'block';
+                    } else if (secondaryEl) {
+                        secondaryEl.style.display = 'none';
+                    }
+                } else if (isClockRunning) {
+                    const clockElapsed = Math.floor((Date.now() - active.clockStartedAt) / 1000);
+                    const clockTotal = (active.clockTotalSeconds || 0) + clockElapsed;
+                    if (modeEl) modeEl.innerText = "ACTIVE CLOCK SESSION";
+                    if (primaryEl) primaryEl.innerText = formatTimeHHMMSS(clockTotal);
+                    if (secondaryEl) {
+                        secondaryEl.innerText = `Pomodoro: ${state.timers.pomo.type === 'work' ? 'Ready (25m)' : 'Break'}`;
+                        secondaryEl.style.display = 'block';
+                    }
+                } else {
+                    if (modeEl) modeEl.innerText = "DEEP FOCUS STANDBY";
+                    if (primaryEl) primaryEl.innerText = "00:00";
+                    if (secondaryEl) secondaryEl.style.display = 'none';
+                }
+            }
+        };
 
         function updateTimersLogic() {
             const now = Date.now();
@@ -3907,6 +4434,10 @@
                 document.getElementById('pomo-btn').innerText = state.timers.pomo.type === 'work' ? "Start Cycle" : "Start Break";
                 document.getElementById('pomo-btn').classList.remove('stop');
             }
+
+            if (DeepFocus.isActive) {
+                DeepFocus.updateDisplay();
+            }
         }
 
         function formatTimeHHMMSS(s) {
@@ -3940,6 +4471,9 @@
                 updateProgressPreview();
 
                 SoundEngine.playTick();
+                if (!isAnyTimerActive()) {
+                    WakeLockManager.release();
+                }
             } else {
                 // Clock In
                 active.clockStartedAt = now;
@@ -3952,22 +4486,31 @@
                 } else {
                     SoundEngine.playSuccess();
                 }
+                DeepFocus.onTimerStart();
             }
             saveState();
+            if (DeepFocus.isActive) DeepFocus.updateDisplay();
         }
 
         function togglePomo() {
             if (state.timers.pomo.status === 'running') {
                 finishPomoCycle();
+                if (!isAnyTimerActive()) {
+                    WakeLockManager.release();
+                }
             } else {
                 state.timers.pomo.status = 'running';
                 state.timers.pomo.startedAt = Date.now();
+                DeepFocus.onTimerStart();
             }
             saveState();
+            if (DeepFocus.isActive) DeepFocus.updateDisplay();
         }
 
         function finishPomoCycle() {
-            SoundEngine.playLevelUp();
+            const finishedType = state.timers.pomo.type;
+            triggerCompletionNotification(finishedType);
+
             if (state.timers.pomo.type === 'work') {
                 state.timers.pomo.type = 'break';
                 state.timers.pomo.duration = 300; // 5 mins
@@ -3979,6 +4522,10 @@
             }
             state.timers.pomo.status = 'idle';
             state.timers.pomo.startedAt = null;
+
+            if (DeepFocus.isActive) {
+                DeepFocus.updateDisplay();
+            }
         }
         function renderCalendar() {
             const grid = document.querySelector('.calendar-grid'); if (!grid) return;
@@ -4348,6 +4895,43 @@
     <div
         style="font-size: 0.6rem; color: rgba(255,255,255,0.15); text-align: center; width: 100%; padding: 40px 0 20px; font-family: var(--font-family); letter-spacing: 0.5px; user-select: none; pointer-events: none;">
         Developed by Robotics and Innovations Oriented Nexus.
+    </div>
+
+    <!-- DEEP FOCUS OLED HUD OVERLAY -->
+    <div id="deep-focus-hud" class="deep-focus-overlay hidden" onclick="DeepFocus.exit()">
+        <div class="df-glow-ambient"></div>
+        <button class="df-exit-btn" onclick="DeepFocus.exit()" title="Exit Deep Focus"><i class="fas fa-times"></i></button>
+        <div class="df-content" onclick="event.stopPropagation(); DeepFocus.exit();">
+            <div class="df-header">
+                <span class="df-live-badge"><span class="df-pulse-dot"></span> DEEP FOCUS</span>
+                <span id="df-project-name" class="df-project-title">Focus Project</span>
+            </div>
+            
+            <div class="df-timer-wrap">
+                <div id="df-mode-label" class="df-mode-label">POMODORO WORK</div>
+                <div id="df-primary-timer" class="df-timer-digits">25:00</div>
+                <div id="df-secondary-timer" class="df-secondary-digits">Clocked In: 00:00:00</div>
+            </div>
+
+            <div class="df-footer">
+                <div class="df-hint"><i class="fas fa-hand-pointer"></i> Tap anywhere to return to dashboard</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEEP FOCUS START PROMPT TOAST -->
+    <div id="deep-focus-prompt" class="df-prompt hidden">
+        <div class="df-prompt-inner">
+            <div class="df-prompt-icon"><i class="fas fa-moon"></i></div>
+            <div class="df-prompt-text">
+                <div class="df-prompt-title">Enter Deep Focus?</div>
+                <div class="df-prompt-desc">Ultra-dim OLED battery saver</div>
+            </div>
+            <div class="df-prompt-actions">
+                <button id="df-prompt-activate-btn" class="df-btn-primary">Enter</button>
+                <button id="df-prompt-dismiss-btn" class="df-btn-secondary">Later</button>
+            </div>
+        </div>
     </div>
 
     <!-- CUSTOM ALERT OVERLAY -->
