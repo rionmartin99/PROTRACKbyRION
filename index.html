@@ -1,12 +1,12 @@
 <!--
-  Version: 1.6.1
-  Date: 2026-09-12 3:10 PM
+  Version: 1.6.2
+  Date: 2026-09-12 3:31 PM
   Change Log:
+  - 2026-09-12: Fix: Corrected project name rendering in Deep Focus HUD from undefined to active.name [Fix]
   - 2026-09-12: Feature: Linked custom app icon, favicon, and PWA manifest for home screen installation [New Feature]
   - 2026-09-12: Feature: Deep Focus OLED mode with Screen Wake Lock, 5-min inactivity dimmer, system notifications, and haptic sound alerts [New Feature]
   - 2026-09-12: Fix: Resolved duplicate variable declaration in updateProgressPreview() [Fix]
   - 2026-09-12: Feature: Timeframe-scaled daily progress and XP computation for balanced project pacing [New Feature]
-  - 2026-09-12: Fix: Removed cloud icon and alert popups for completely silent background sync [Fix]
 -->
 
 
@@ -4355,7 +4355,7 @@
                 if (!this.isActive) return;
                 const active = getActiveProject();
                 const titleEl = document.getElementById('df-project-name');
-                if (titleEl) titleEl.innerText = active ? active.title : "No Active Project";
+                if (titleEl) titleEl.innerText = (active && (active.name || active.title)) ? (active.name || active.title) : "Active Project";
 
                 const modeEl = document.getElementById('df-mode-label');
                 const primaryEl = document.getElementById('df-primary-timer');
