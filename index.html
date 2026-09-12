@@ -1,12 +1,12 @@
 <!--
-  Version: 1.4.0
-  Date: 2026-09-12 1:55 PM
+  Version: 1.4.1
+  Date: 2026-09-12 2:18 PM
   Change Log:
+  - 2026-09-12: Feature: Pre-configured Google Sheets/Drive Web App endpoint and removed setup URL prompt [New Feature]
   - 2026-09-12: Feature: Google Apps Script & Sheets integration with automatic background Drive image storage [New Feature]
   - 2026-09-12: Feature: Dynamic project durations (31, 25, 20, 15, 10 days) with intelligent milestone scaling [New Feature]
   - 2026-04-11: Feature: Global XP Pool (Shared currency across projects) [New Feature]
   - 2026-04-11: Feature: Added Equip/Unequip toggle for purchased accessories [New Feature]
-  - 2026-04-11: Feature: Simplified Nexus Market (Removed Try-On, consolidated categories, free Sport Cap) [New Feature]
 -->
 
 
@@ -2026,16 +2026,6 @@
                             style="padding: 10px 20px; font-size: 0.8rem; border-radius: 12px;">Reset</button>
                     </div>
                 </div>
-                <div class="input-group">
-                    <label style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Google Apps Script Sync URL</span>
-                        <span style="font-size: 0.65rem; color: var(--text-secondary); text-transform: none; font-weight: 400;">Optional</span>
-                    </label>
-                    <input type="url" id="setup-gas-url" placeholder="https://script.google.com/macros/s/.../exec">
-                    <p style="font-size: 0.68rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.35;">
-                        Paste your deployed Web App URL to auto-log to Google Sheets &amp; Drive (when running standalone).
-                    </p>
-                </div>
                 <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">Initialize Project</button>
             </form>
         </div>
@@ -2862,10 +2852,12 @@
             bronze: { name: 'Bronze Prize', emoji: '🥉', price: 1800, x: 50, y: 94, size: 32, cat: 'emblem_c' }
         };
 
+        const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7AYUS2yTV_92W567HnbCgFHDJ_j2f0AnKbeNYekYQ3e7u-xI7190BA5ZT7oOlFURF/exec';
+
         let state = {
             projects: [],
             activeProjectId: null,
-            gasWebAppUrl: '',
+            gasWebAppUrl: GAS_WEB_APP_URL,
             timers: {
                 pomo: { status: 'idle', startedAt: null, type: 'work', duration: 1500 }
             },
@@ -2917,7 +2909,7 @@
                 return typeof google !== 'undefined' && typeof google.script !== 'undefined' && typeof google.script.run !== 'undefined';
             },
             isConfigured() {
-                return this.isGasEnvironment() || Boolean(state.gasWebAppUrl && state.gasWebAppUrl.trim().length > 0);
+                return true;
             },
             setStatus(type, tooltip) {
                 const el = document.getElementById('cloud-sync-indicator');
@@ -2927,15 +2919,15 @@
                 if (type === 'success') {
                     setTimeout(() => {
                         if (el.classList.contains('success')) {
-                            el.className = 'cloud-sync-indicator' + (this.isConfigured() ? '' : ' idle');
-                            el.title = this.isConfigured() ? (this.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Ready') : 'Cloud Sync: Local Only';
+                            el.className = 'cloud-sync-indicator';
+                            el.title = this.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Connected';
                         }
                     }, 4000);
                 } else if (type === 'error') {
                     setTimeout(() => {
                         if (el.classList.contains('error')) {
-                            el.className = 'cloud-sync-indicator' + (this.isConfigured() ? '' : ' idle');
-                            el.title = this.isConfigured() ? (this.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Ready') : 'Cloud Sync: Local Only';
+                            el.className = 'cloud-sync-indicator';
+                            el.title = this.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Connected';
                         }
                     }, 5000);
                 }
@@ -2969,7 +2961,7 @@
                 }
 
                 // Standalone / Local Web App POST fetch
-                const url = state.gasWebAppUrl.trim();
+                const url = (state.gasWebAppUrl || GAS_WEB_APP_URL).trim();
                 return fetch(url, {
                     method: 'POST',
                     mode: 'no-cors',
@@ -3098,7 +3090,7 @@
             if (saved) {
                 const raw = JSON.parse(saved);
                 state = { ...state, ...raw };
-                if (raw.gasWebAppUrl) state.gasWebAppUrl = raw.gasWebAppUrl;
+                state.gasWebAppUrl = raw.gasWebAppUrl || GAS_WEB_APP_URL;
 
                 // Global XP Migration
                 if (state.globalXP === undefined) {
@@ -3161,7 +3153,7 @@
             }
             updateUI();
             initTimers();
-            CloudSync.setStatus('idle', CloudSync.isConfigured() ? (CloudSync.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Ready') : 'Cloud Sync: Local Only (Configure Web App URL in Setup)');
+            CloudSync.setStatus('idle', CloudSync.isGasEnvironment() ? 'GAS Mode Active' : 'Cloud Sync Connected');
         }
         function saveState() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -3197,8 +3189,6 @@
             document.getElementById('setup-page').classList.remove('hidden');
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('setup-start-date').value = today;
-            const gasInput = document.getElementById('setup-gas-url');
-            if (gasInput) gasInput.value = state.gasWebAppUrl || '';
             setSetupDuration(31);
         }
         document.getElementById('set-today-btn').addEventListener('click', () => {
@@ -3211,10 +3201,6 @@
             const desc = document.getElementById('setup-project-desc').value;
             const date = document.getElementById('setup-start-date').value;
             const totalDays = parseInt(document.getElementById('setup-total-days').value) || 31;
-            const gasInput = document.getElementById('setup-gas-url');
-            if (gasInput) {
-                state.gasWebAppUrl = gasInput.value.trim();
-            }
 
             if (mode === 'edit') {
                 const active = getActiveProject();
@@ -3254,8 +3240,6 @@
             document.getElementById('setup-project-name').value = active.name;
             document.getElementById('setup-project-desc').value = active.description;
             document.getElementById('setup-start-date').value = active.startDate;
-            const gasInput = document.getElementById('setup-gas-url');
-            if (gasInput) gasInput.value = state.gasWebAppUrl || '';
             setSetupDuration(active.totalDays || 31);
             document.getElementById('close-setup-btn').style.display = 'flex';
             document.getElementById('setup-page').classList.remove('hidden');
@@ -3268,8 +3252,6 @@
             form.dataset.mode = 'create';
             document.querySelector('#setup-page h1').innerText = "Initial Setup";
             form.reset();
-            const gasInput = document.getElementById('setup-gas-url');
-            if (gasInput) gasInput.value = state.gasWebAppUrl || '';
             setSetupDuration(31);
             document.getElementById('close-setup-btn').style.display = state.projects && state.projects.length > 0 ? 'flex' : 'none';
             showSetup();
@@ -4386,11 +4368,9 @@
         if (syncIndicator) {
             syncIndicator.addEventListener('click', () => {
                 if (CloudSync.isGasEnvironment()) {
-                    showAlert('☁️ Cloud Sync Active', 'ProTrack is running in Google Apps Script! Logs, milestones, and BOM inventory sync directly to Google Sheets, and photos are automatically saved to Google Drive.');
-                } else if (state.gasWebAppUrl) {
-                    showAlert('☁️ Cloud Sync Connected', 'ProTrack is connected to Google Apps Script:\n' + state.gasWebAppUrl + '\n\nAll logs and photos are automatically backed up to Google Sheets & Drive in the background.');
+                    showAlert('☁️ Cloud Sync Active', 'ProTrack is running directly in Google Apps Script! Logs, milestones, and BOM inventory sync to Google Sheets, and photos are automatically saved to Google Drive.');
                 } else {
-                    showAlert('☁️ Cloud Sync Setup', 'Cloud sync is currently inactive. To automatically save logs to Google Sheets and photos to Google Drive, deploy code.gs in Google Apps Script and paste your Web App URL into Project Setup (Edit Project).');
+                    showAlert('☁️ Cloud Sync Connected', 'ProTrack is connected to Google Sheets & Google Drive!\n\nAll logs, project progress, milestones, BOM inventory, and imprinted photos are automatically synchronized in the background.');
                 }
             });
         }
