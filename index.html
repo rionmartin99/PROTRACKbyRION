@@ -1,12 +1,12 @@
 <!--
-  Version: 1.6.2
-  Date: 2026-09-12 3:31 PM
+  Version: 1.7.0
+  Date: 2026-09-12 4:52 PM
   Change Log:
+  - 2026-09-12: Feature: 100% completion system with Stage 5 Ascended Golden Robot, Grand Fanfare, XP Jackpot, and Shareable Project Certificate [New Feature]
   - 2026-09-12: Fix: Corrected project name rendering in Deep Focus HUD from undefined to active.name [Fix]
   - 2026-09-12: Feature: Linked custom app icon, favicon, and PWA manifest for home screen installation [New Feature]
   - 2026-09-12: Feature: Deep Focus OLED mode with Screen Wake Lock, 5-min inactivity dimmer, system notifications, and haptic sound alerts [New Feature]
   - 2026-09-12: Fix: Resolved duplicate variable declaration in updateProgressPreview() [Fix]
-  - 2026-09-12: Feature: Timeframe-scaled daily progress and XP computation for balanced project pacing [New Feature]
 -->
 
 
@@ -2150,6 +2150,258 @@
             animation: rippleEffect 1.5s infinite linear;
         }
 
+        /* STAGE 5: ASCENDED GOLDEN ROBOT COMPANION */
+        .advisor-card.stage-ascended {
+            border-color: #ffd700 !important;
+            animation: ascendedPulse 2.5s infinite ease-in-out;
+            background: rgba(255, 215, 0, 0.08) !important;
+        }
+
+        @keyframes ascendedPulse {
+            0%, 100% {
+                box-shadow: 0 0 15px rgba(255, 215, 0, 0.25);
+            }
+            50% {
+                box-shadow: 0 0 35px rgba(255, 215, 0, 0.55);
+            }
+        }
+
+        .advisor-card.stage-ascended .advisor-avatar {
+            filter: drop-shadow(0 0 16px rgba(255, 215, 0, 0.6));
+        }
+
+        .advisor-card.stage-ascended .robot-head,
+        .advisor-card.stage-ascended .robot-body,
+        .advisor-card.stage-ascended .robot-limb-extremity {
+            fill: url(#goldChassisGradient) !important;
+            stroke: #ffd700 !important;
+            filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+        }
+
+        .advisor-card.stage-ascended .robot-limb {
+            stroke: #ffd700 !important;
+        }
+
+        .advisor-card.stage-ascended .robot-screen {
+            fill: #08080a !important;
+            stroke: rgba(255, 215, 0, 0.6) !important;
+        }
+
+        .advisor-card.stage-ascended .eye-element {
+            fill: #ffd700 !important;
+            filter: drop-shadow(0 0 8px #ffd700) !important;
+        }
+
+        .advisor-card.stage-ascended .smile-element {
+            stroke: #ffd700 !important;
+            filter: drop-shadow(0 0 6px #ffd700) !important;
+        }
+
+        .advisor-card.stage-ascended .robot-accessory {
+            stroke: #ffd700 !important;
+            stroke-dasharray: none;
+        }
+
+        .advisor-card.stage-ascended .ripple-ring {
+            animation: rippleEffect 1.2s infinite linear;
+            stroke: rgba(255, 215, 0, 0.5) !important;
+        }
+
+        .advisor-card.stage-ascended .golden-halo {
+            display: block !important;
+        }
+
+        .golden-halo {
+            display: none;
+            position: absolute;
+            top: 2px;
+            left: 50%;
+            transform: translateX(-50%) rotateX(65deg);
+            width: 58px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid #ffd700;
+            box-shadow: 0 0 12px #ffd700, inset 0 0 6px #ffd700;
+            animation: floatHalo 3s infinite ease-in-out;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        @keyframes floatHalo {
+            0%, 100% { transform: translateX(-50%) translateY(0) rotateX(65deg); }
+            50% { transform: translateX(-50%) translateY(-4px) rotateX(65deg); }
+        }
+
+        /* 100% Fullscreen Celebration Overlay */
+        .celebration-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99995;
+            background: rgba(5, 5, 8, 0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            user-select: none;
+            animation: celOverlayFade 0.4s ease forwards;
+        }
+
+        .celebration-overlay.hidden {
+            display: none;
+        }
+
+        @keyframes celOverlayFade {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        #confetti-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .celebration-content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 420px;
+            background: linear-gradient(180deg, rgba(28, 26, 18, 0.95), rgba(12, 12, 16, 0.98));
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            border-radius: 28px;
+            padding: 30px 22px;
+            text-align: center;
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.2), 0 30px 80px rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .victory-badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 215, 0, 0.15);
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            border-radius: 999px;
+            padding: 5px 16px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #ffd700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .victory-h1 {
+            font-size: 1.7rem;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+            color: #ffffff;
+            text-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
+        }
+
+        .victory-subtitle {
+            font-size: 0.82rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+        }
+
+        .xp-jackpot-box {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px dashed rgba(255, 215, 0, 0.35);
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .xp-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .xp-stat .val {
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: #ffd700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .xp-stat .lbl {
+            font-size: 0.62rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        /* Certificate Modal */
+        .certificate-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(16px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            animation: celOverlayFade 0.3s ease forwards;
+        }
+
+        .certificate-modal.hidden {
+            display: none;
+        }
+
+        .certificate-card {
+            width: 100%;
+            max-width: 480px;
+            background: #09090d;
+            border: 2px solid #ffd700;
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 0 45px rgba(255, 215, 0, 0.25);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .certificate-close {
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .certificate-close:hover {
+            color: #ffffff;
+        }
+
+        #certificate-canvas {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            background: #000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        }
+
         /* NEW ANIMATIONS 3.4 */
         .eyes-group {
             animation: roboticWander 12s infinite cubic-bezier(0.19, 1, 0.22, 1);
@@ -2430,6 +2682,9 @@
                     </div>
                 </div>
                 <div id="current-goal-label" class="active-goal-indicator">Ready to Start</div>
+                <button id="hero-certificate-btn" class="hidden" onclick="openCertificateModal()" style="margin-top: 10px; background: linear-gradient(135deg, #ffd700, #ff9900); border: none; border-radius: 10px; color: #000; font-size: 0.72rem; font-weight: 900; padding: 7px 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); transition: all 0.2s ease;">
+                    <i class="fas fa-certificate"></i> Project Certificate
+                </button>
                 <div id="schedule-warning" class="schedule-warning hidden" style="margin-top: 12px;">
                     <i class="fas fa-exclamation-triangle"></i>
                     <span>Behind schedule</span>
@@ -3072,7 +3327,8 @@
             { id: 'streak-king', title: 'Streak King', desc: 'Reach a 10-day engineering streak', icon: 'fa-crown', color: '#fdcb6e' },
             { id: 'bom-architect', title: 'BOM Architect', desc: 'Add 15+ items to your project inventory', icon: 'fa-boxes', color: '#55efc4' },
             { id: 'speed-demon', title: 'Speed Demon', desc: 'Complete Objective 1 within 5 days', icon: 'fa-bolt', color: '#fab1a0' },
-            { id: 'perfectionist', title: 'Perfectionist', desc: 'Achieve a 100% Peer Review score', icon: 'fa-star', color: '#ffeaa7' }
+            { id: 'perfectionist', title: 'Perfectionist', desc: 'Achieve a 100% Peer Review score', icon: 'fa-star', color: '#ffeaa7' },
+            { id: 'singularity-core', title: 'Singularity Core', desc: 'Conquer 100% of a complete project directive', icon: 'fa-atom', color: '#ffd700' }
         ];
         const THEMES = {
             default: { name: 'Titanium Dark', primary: '#000000', secondary: '#1c1c1e', accent: '#beff33' },
@@ -3326,6 +3582,25 @@
                 if ('vibrate' in navigator) {
                     try { navigator.vibrate(pattern || [400, 200, 400, 200, 800]); } catch (e) {}
                 }
+            },
+            playGrandVictory() {
+                if (state.muted) return;
+                this.init();
+                const chords = [
+                    { f: 261.63, d: 0.25, t: 'triangle', v: 0.12, s: 0.00 },
+                    { f: 329.63, d: 0.25, t: 'sine',     v: 0.12, s: 0.12 },
+                    { f: 392.00, d: 0.25, t: 'triangle', v: 0.12, s: 0.24 },
+                    { f: 523.25, d: 0.35, t: 'sine',     v: 0.14, s: 0.36 },
+                    { f: 659.25, d: 0.35, t: 'triangle', v: 0.14, s: 0.52 },
+                    { f: 783.99, d: 0.40, t: 'sine',     v: 0.15, s: 0.68 },
+                    { f: 1046.5, d: 0.60, t: 'triangle', v: 0.18, s: 0.88 },
+                    { f: 1318.5, d: 0.80, t: 'sine',     v: 0.16, s: 1.05 }
+                ];
+                chords.forEach(c => {
+                    setTimeout(() => {
+                        this.play(c.f, c.t, c.d, c.v);
+                    }, c.s * 1000);
+                });
             }
         };
         const STORAGE_KEY = 'proTrackState';
@@ -3788,17 +4063,24 @@
             if (list) {
                 list.innerHTML = "";
                 state.projects.forEach(p => {
+                    const isDone = ((p.progress || 0) >= 100 || p.completed);
                     const card = document.createElement('div');
                     card.className = `project-card-mini ${p.id === state.activeProjectId ? 'active' : ''}`;
                     card.innerHTML = `
                 <div class="project-info">
-                    <div class="project-id-dot"></div>
+                    <div class="project-id-dot" style="${isDone ? 'background:#ffd700;box-shadow:0 0 8px #ffd700;' : ''}"></div>
                     <div>
-                        <div class="project-meta-name">${p.name}</div>
+                        <div class="project-meta-name" style="display:flex; align-items:center; gap:6px;">
+                            <span>${p.name}</span>
+                            ${isDone ? '<span style="font-size:0.6rem; color:#ffd700; background:rgba(255,215,0,0.12); padding:1px 6px; border-radius:6px; font-weight:800;"><i class="fas fa-crown"></i> 100%</span>' : ''}
+                        </div>
                         <div class="project-meta-progress">${(p.progress || 0).toFixed(1)}% Comp. • ${p.totalDays || 31}d</div>
                     </div>
                 </div>
-                <i class="fas fa-chevron-right" style="opacity: 0.3;"></i>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    ${isDone ? `<button onclick="event.stopPropagation(); openCertificateModal(${p.id});" style="background:rgba(255,215,0,0.12); border:1px solid rgba(255,215,0,0.3); border-radius:8px; color:#ffd700; font-size:0.68rem; font-weight:800; padding:4px 8px; cursor:pointer;" title="View Project Certificate"><i class="fas fa-certificate"></i></button>` : ''}
+                    <i class="fas fa-chevron-right" style="opacity: 0.3;"></i>
+                </div>
             `;
                     card.onclick = () => { state.activeProjectId = p.id; saveState(); };
                     list.appendChild(card);
@@ -3812,6 +4094,13 @@
             updateMilestoneCountdown();
             updateSWOT();
             updateAdvisorAvatar();
+
+            const certBtn = document.getElementById('hero-certificate-btn');
+            if (certBtn) {
+                if ((active.progress || 0) >= 100 || active.completed) certBtn.classList.remove('hidden');
+                else certBtn.classList.add('hidden');
+            }
+            check100PercentCompletion(active);
         }
 
         function updateAdvisorAvatar() {
@@ -3827,7 +4116,15 @@
             // Inject SVG once — stages driven purely by CSS classes
             if (!container.querySelector('.nexus-svg')) {
                 container.innerHTML = `
+          <div class="golden-halo"></div>
           <svg class="nexus-svg" viewBox="0 0 100 135">
+            <defs>
+              <linearGradient id="goldChassisGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#fff099" />
+                <stop offset="40%" stop-color="#ffd700" />
+                <stop offset="100%" stop-color="#b38600" />
+              </linearGradient>
+            </defs>
             <circle class="ripple-ring" cx="50" cy="40" r="35" />
             <path class="robot-limb" d="M 25 85 L 12 105" fill="none" stroke-width="12" stroke-linecap="round" />
             <path class="robot-limb" d="M 75 85 L 88 105" fill="none" stroke-width="12" stroke-linecap="round" />
@@ -3869,8 +4166,10 @@
 
             // Switch stage classes on the card
             if (advisorBox) {
-                advisorBox.classList.remove('stage-wireframe', 'stage-solid', 'stage-power', 'stage-battle');
-                if (progress >= 80) {
+                advisorBox.classList.remove('stage-wireframe', 'stage-solid', 'stage-power', 'stage-battle', 'stage-ascended');
+                if (progress >= 100 || active.completed) {
+                    advisorBox.classList.add('stage-solid', 'stage-power', 'stage-battle', 'stage-ascended');
+                } else if (progress >= 80) {
                     advisorBox.classList.add('stage-solid', 'stage-power', 'stage-battle');
                 } else if (progress >= 60) {
                     advisorBox.classList.add('stage-solid', 'stage-power');
@@ -3884,7 +4183,8 @@
             // Update Telemetry
             if (biosLine) {
                 let hStr = "";
-                if (progress < 30) hStr = "Something extraordinary stirs within me... reach 30% and witness what I become.";
+                if (progress >= 100 || active.completed) hStr = "We did it, Engineer! From a hollow blueprint to an unstoppable golden machine. Mission 100% complete.";
+                else if (progress < 30) hStr = "Something extraordinary stirs within me... reach 30% and witness what I become.";
                 else if (progress < 60) hStr = "A new layer of myself is awakening. I wonder what waits at 60%... I feel it pulling.";
                 else if (progress < 80) hStr = "My form is shifting. There is something beyond this state — something at 80% I cannot yet fully see.";
                 else hStr = "This is my final form... for now. Together, we finish what we started.";
@@ -4547,7 +4847,7 @@
 
             const active = getActiveProject();
             if (!active) return;
-            const logs = (active.history || []).map(h => h.date.split('T')[0]);
+            const logs = (active.history || []).filter(h => h && h.date).map(h => h.date.split('T')[0]);
             const milestones = []; if (active && active.startDate) {
                 const start = new Date(active.startDate); const goals = getProjectGoals(active); Object.keys(goals).forEach(p => { if (goals[p].isMain) { const d = new Date(start); d.setDate(start.getDate() + goals[p].targetDay - 1); milestones.push(d.toLocaleDateString('en-CA')); } });
             }
@@ -4885,6 +5185,315 @@
                 }
             };
         }
+        // ==========================================
+        // 100% COMPLETION & CELEBRATION ENGINE
+        // ==========================================
+        const ConfettiEngine = {
+            canvas: null,
+            ctx: null,
+            particles: [],
+            animId: null,
+
+            init() {
+                this.canvas = document.getElementById('confetti-canvas');
+                if (!this.canvas) return;
+                this.ctx = this.canvas.getContext('2d');
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            },
+
+            resize() {
+                if (!this.canvas) return;
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            },
+
+            burst(count = 140) {
+                this.init();
+                const colors = ['#ffd700', '#ffae00', '#beff33', '#00f0ff', '#ffffff'];
+                const originX = this.canvas.width / 2;
+                const originY = this.canvas.height / 2;
+
+                for (let i = 0; i < count; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 4 + Math.random() * 12;
+                    this.particles.push({
+                        x: originX,
+                        y: originY,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - 2,
+                        size: 4 + Math.random() * 6,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        alpha: 1,
+                        decay: 0.008 + Math.random() * 0.015,
+                        rotation: Math.random() * 360,
+                        rotSpeed: (Math.random() - 0.5) * 8
+                    });
+                }
+
+                if (!this.animId) this.loop();
+            },
+
+            loop() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.18; // gravity
+                    p.alpha -= p.decay;
+                    p.rotation += p.rotSpeed;
+
+                    if (p.alpha <= 0) {
+                        this.particles.splice(i, 1);
+                        continue;
+                    }
+
+                    this.ctx.save();
+                    this.ctx.globalAlpha = p.alpha;
+                    this.ctx.translate(p.x, p.y);
+                    this.ctx.rotate((p.rotation * Math.PI) / 180);
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    this.ctx.restore();
+                }
+
+                if (this.particles.length > 0) {
+                    this.animId = requestAnimationFrame(() => this.loop());
+                } else {
+                    this.animId = null;
+                }
+            }
+        };
+
+        function trigger100Celebration(active) {
+            if (!active) active = getActiveProject();
+            if (!active) return;
+
+            // Grand Fanfare Audio
+            if (SoundEngine && SoundEngine.playGrandVictory) {
+                SoundEngine.playGrandVictory();
+            }
+
+            // Haptics
+            if ('vibrate' in navigator) {
+                try { navigator.vibrate([200, 100, 200, 100, 600]); } catch (e) {}
+            }
+
+            // Show Overlay
+            const overlay = document.getElementById('celebration-overlay');
+            if (overlay) overlay.classList.remove('hidden');
+
+            // Fire Confetti
+            ConfettiEngine.burst(160);
+
+            // Animate XP Counter Roll Up
+            const counterEl = document.getElementById('xp-jackpot-counter');
+            if (counterEl) {
+                let currentXP = 0;
+                const targetXP = 2500;
+                const duration = 1200;
+                const startTime = Date.now();
+
+                const rollTimer = setInterval(() => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(1, elapsed / duration);
+                    currentXP = Math.floor(progress * targetXP);
+                    counterEl.innerText = `+${currentXP.toLocaleString()} XP`;
+
+                    if (progress >= 1) clearInterval(rollTimer);
+                }, 30);
+            }
+        }
+
+        function closeCelebrationOverlay() {
+            const overlay = document.getElementById('celebration-overlay');
+            if (overlay) overlay.classList.add('hidden');
+        }
+
+        function renderCanvasCertificate(active) {
+            if (!active) active = getActiveProject();
+            const canvas = document.getElementById('certificate-canvas');
+            if (!canvas || !active) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Background
+            ctx.fillStyle = '#060609';
+            ctx.fillRect(0, 0, w, h);
+
+            // Cyberpunk Grid Background
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.04)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < w; x += 30) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for (let y = 0; y < h; y += 30) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+
+            // Border & Gold Corner Accents
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(15, 15, w - 30, h - 30);
+
+            // Corner Brackets
+            const cornerSize = 18;
+            ctx.lineWidth = 4;
+            // Top Left
+            ctx.beginPath(); ctx.moveTo(10, 10 + cornerSize); ctx.lineTo(10, 10); ctx.lineTo(10 + cornerSize, 10); ctx.stroke();
+            // Top Right
+            ctx.beginPath(); ctx.moveTo(w - 10 - cornerSize, 10); ctx.lineTo(w - 10, 10); ctx.lineTo(w - 10, 10 + cornerSize); ctx.stroke();
+            // Bottom Left
+            ctx.beginPath(); ctx.moveTo(10, h - 10 - cornerSize); ctx.lineTo(10, h - 10); ctx.lineTo(10 + cornerSize, h - 10); ctx.stroke();
+            // Bottom Right
+            ctx.beginPath(); ctx.moveTo(w - 10 - cornerSize, h - 10); ctx.lineTo(w - 10, h - 10); ctx.lineTo(w - 10, h - 10 - cornerSize); ctx.stroke();
+
+            // Header
+            ctx.fillStyle = '#beff33';
+            ctx.font = 'bold 9.5px sans-serif';
+            ctx.letterSpacing = '1px';
+            ctx.fillText('ROBOTICS AND INNOVATIONS ORIENTED NEXUS // OFFICIAL PROJECT CERTIFICATE', 35, 45);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 24px sans-serif';
+            ctx.fillText('MISSION COMPLETION CERTIFICATE', 35, 78);
+
+            // Divider Line
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(35, 92); ctx.lineTo(w - 35, 92); ctx.stroke();
+
+            // Project Name & Details
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.fillText('PROJECT DIRECTIVE:', 35, 125);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 22px sans-serif';
+            ctx.fillText(active.name || 'Autonomous Mobile Robot', 35, 152);
+
+            // Stats Grid Box
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.fillRect(35, 175, w - 70, 105);
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
+            ctx.strokeRect(35, 175, w - 70, 105);
+
+            // Stat Columns
+            const hoursLogged = ((active.clockTotalSeconds || 0) / 3600).toFixed(1);
+            const daysLogged = (active.history ? active.history.length : 0);
+            const stats = [
+                { val: `${Math.round(active.progress || 100)}%`, lbl: 'COMPLETION' },
+                { val: `${daysLogged} / ${active.totalDays || 31}`, lbl: 'DAYS ACTIVE' },
+                { val: `${hoursLogged} HRS`, lbl: 'FOCUS CLOCK' },
+                { val: 'S-RANK', lbl: 'EVALUATION' }
+            ];
+
+            const colWidth = (w - 70) / stats.length;
+            stats.forEach((s, idx) => {
+                const xPos = 35 + (idx * colWidth) + (colWidth / 2);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffd700';
+                ctx.font = '900 18px sans-serif';
+                ctx.fillText(s.val, xPos, 222);
+
+                ctx.fillStyle = '#8e8e93';
+                ctx.font = 'bold 9px sans-serif';
+                ctx.fillText(s.lbl, xPos, 245);
+            });
+            ctx.textAlign = 'left';
+
+            // Verification Seal at Bottom
+            ctx.fillStyle = '#beff33';
+            ctx.font = 'bold 10px sans-serif';
+            const dateSource = active.completedDate ? new Date(active.completedDate) : new Date();
+            const dateStr = dateSource.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            ctx.fillText(`VERIFIED ON: ${dateStr.toUpperCase()}`, 35, 335);
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.font = '9px sans-serif';
+            ctx.fillText('Robotics and Innovations Oriented Nexus // ProTrack Protocol v1.7', 35, 355);
+
+            // Golden Stamp
+            ctx.save();
+            ctx.translate(w - 110, 340);
+            ctx.rotate(-0.15);
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-48, -25, 96, 50);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffd700';
+            ctx.font = '900 11px sans-serif';
+            ctx.fillText('R.I.O.N. SEAL', 0, -4);
+            ctx.font = 'bold 8px sans-serif';
+            ctx.fillText('VERIFIED', 0, 12);
+            ctx.restore();
+        }
+
+        let activeCertificateProject = null;
+
+        function openCertificateModal(projId) {
+            closeCelebrationOverlay();
+            let targetProj = getActiveProject();
+            if (projId) {
+                targetProj = state.projects.find(p => p.id === projId) || targetProj;
+            }
+            activeCertificateProject = targetProj;
+            const modal = document.getElementById('certificate-modal');
+            if (modal) modal.classList.remove('hidden');
+            renderCanvasCertificate(targetProj);
+        }
+
+        function closeCertificateModal() {
+            const modal = document.getElementById('certificate-modal');
+            if (modal) modal.classList.add('hidden');
+            activeCertificateProject = null;
+        }
+
+        function downloadCertificatePNG() {
+            const canvas = document.getElementById('certificate-canvas');
+            if (!canvas) return;
+            const proj = activeCertificateProject || getActiveProject();
+            const link = document.createElement('a');
+            const safeName = proj ? proj.name.replace(/[^a-zA-Z0-9]/g, '_') : 'Project';
+            link.download = `ProTrack_Certificate_${safeName}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function copyCertificateShareText() {
+            const proj = activeCertificateProject || getActiveProject();
+            const name = proj ? proj.name : 'Robotics Project';
+            const text = `🏆 100% COMPLETE! Just crossed the finish line on "${name}" with ProTrack. S-Rank pacing achieved, full focus hours logged! 🚀⚡ #Robotics #Maker #ProTrack`;
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('📋 Copied to Clipboard', 'Certificate announcement text copied! Ready to post on LinkedIn / X / Discord.');
+            }).catch(() => {
+                showAlert('Share Text', text);
+            });
+        }
+
+        function check100PercentCompletion(active) {
+            if (!active) return;
+            if ((active.progress || 0) >= 100 && !active.completionCelebrated) {
+                active.completed = true;
+                active.completionCelebrated = true;
+                active.completedDate = active.completedDate || new Date().toISOString();
+                state.globalXP = (state.globalXP || 0) + 2500;
+                
+                // Unlock singularity-core in relics
+                if (!state.unlockedRelics) state.unlockedRelics = [];
+                if (!state.unlockedRelics.includes('singularity-core')) {
+                    state.unlockedRelics.push('singularity-core');
+                }
+                
+                saveState();
+                setTimeout(() => {
+                    trigger100Celebration(active);
+                }, 700);
+            }
+        }
 
         (async () => { await loadState(); updateUI(); })();
 
@@ -4933,6 +5542,70 @@
             <div class="df-prompt-actions">
                 <button id="df-prompt-activate-btn" class="df-btn-primary">Enter</button>
                 <button id="df-prompt-dismiss-btn" class="df-btn-secondary">Later</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 100% VICTORY CELEBRATION OVERLAY -->
+    <div id="celebration-overlay" class="celebration-overlay hidden">
+        <canvas id="confetti-canvas"></canvas>
+
+        <div class="celebration-content">
+            <div class="victory-badge-pill">
+                <i class="fas fa-star"></i> MISSION COMPLETE <i class="fas fa-star"></i>
+            </div>
+
+            <h2 class="victory-h1">PROJECT 100% CONQUERED!</h2>
+            <p class="victory-subtitle">Outstanding work! You have driven this project across the finish line with complete dedication.</p>
+
+            <div class="xp-jackpot-box">
+                <div class="xp-stat">
+                    <span id="xp-jackpot-counter" class="val">+0 XP</span>
+                    <span class="lbl">Jackpot Bonus</span>
+                </div>
+                <div style="width: 1px; height: 32px; background: rgba(255,255,255,0.1);"></div>
+                <div class="xp-stat">
+                    <span class="val">LVL UP</span>
+                    <span class="lbl">Prestige Rank</span>
+                </div>
+                <div style="width: 1px; height: 32px; background: rgba(255,255,255,0.1);"></div>
+                <div class="xp-stat">
+                    <span class="val" style="color: var(--accent-lime,#beff33);">S-RANK</span>
+                    <span class="lbl">Evaluation</span>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px;">
+                <button onclick="openCertificateModal()" style="width: 100%; padding: 13px; background: linear-gradient(135deg, #ffd700, #ff9900); border: none; border-radius: 12px; color: #000; font-size: 0.82rem; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 8px 20px rgba(255, 170, 0, 0.3);">
+                    <i class="fas fa-certificate"></i> View & Download Certificate
+                </button>
+                <button onclick="closeCelebrationOverlay()" style="width: 100%; padding: 11px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: rgba(255, 255, 255, 0.8); font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                    Continue to Workspace
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OFFICIAL PROJECT CERTIFICATE MODAL -->
+    <div id="certificate-modal" class="certificate-modal hidden">
+        <div class="certificate-card">
+            <button class="certificate-close" onclick="closeCertificateModal()"><i class="fas fa-times"></i></button>
+
+            <div style="text-align: center;">
+                <h3 style="font-size: 1.1rem; font-weight: 800; color: #fff;">Official Project Certificate</h3>
+                <p style="font-size: 0.72rem; color: var(--text-secondary);">Verified Completion Credential</p>
+            </div>
+
+            <!-- Canvas for Certificate Rendering -->
+            <canvas id="certificate-canvas" width="600" height="420"></canvas>
+
+            <div style="display: flex; gap: 10px;">
+                <button onclick="downloadCertificatePNG()" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #ffd700, #ff9900); border: none; border-radius: 12px; color: #000; font-size: 0.8rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 8px 20px rgba(255, 170, 0, 0.3);">
+                    <i class="fas fa-download"></i> Save PNG
+                </button>
+                <button onclick="copyCertificateShareText()" style="flex: 1; padding: 12px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: rgba(255, 255, 255, 0.85); font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;">
+                    <i class="fas fa-share-alt"></i> Copy Post Text
+                </button>
             </div>
         </div>
     </div>
