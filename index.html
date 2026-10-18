@@ -1,12 +1,12 @@
 <!--
-  Version: 2.5.5
-  Date: 2026-10-18 7:10 PM
+  Version: 2.5.6
+  Date: 2026-10-18 7:35 PM
   Change Log:
+  - 2026-10-18 7:35 PM: Fix: Unify scripts, remove disabled state on submit button, add active validation alerts, and harden image imprinting [Fix]
   - 2026-10-18: Fix: Enable immediate online dispatch in CloudSync, fix IndexedDB keyPath DataError, and auto-sync active projects to Google Sheets [Fix]
   - 2026-10-18: Fix: Add explicit confirmation dialog and cloud sync upon project deletion [Fix]
   - 2026-10-18: Fix: Enable allowUpdate on daily dispatches, add no-cors cloud sync fallback, extend timeout to 60s, and optimize image payload [Fix]
   - 2026-10-18: Fix: Replace brain icon with stylized robotic avatar face in R.I.O.N. authentication orb [Fix]
-  - 2026-10-18: Fix: Isolate active project list to authenticated engineer and purge unowned legacy projects [Fix]
 -->
 
 
@@ -3762,7 +3762,298 @@
         </div>
     </section>
 
+
+    <!-- MODALS & OVERLAYS (RENDERED BEFORE SCRIPT EXECUTION) -->
+    <div
+        style="font-size: 0.6rem; color: rgba(255,255,255,0.15); text-align: center; width: 100%; padding: 40px 0 20px; font-family: var(--font-family); letter-spacing: 0.5px; user-select: none; pointer-events: none;">
+        Developed by Robotics and Innovations Oriented Nexus.
+    </div>
+
+    <!-- DEEP FOCUS OLED HUD OVERLAY -->
+    <div id="deep-focus-hud" class="deep-focus-overlay hidden" onclick="DeepFocus.exit()">
+        <div class="df-glow-ambient"></div>
+        <button class="df-exit-btn" onclick="DeepFocus.exit()" title="Exit Deep Focus"><i class="fas fa-times"></i></button>
+        <div class="df-content" onclick="event.stopPropagation(); DeepFocus.exit();">
+            <div class="df-header">
+                <span class="df-live-badge"><span class="df-pulse-dot"></span> DEEP FOCUS</span>
+                <span id="df-project-name" class="df-project-title">Focus Project</span>
+            </div>
+            
+            <div class="df-timer-wrap">
+                <div id="df-mode-label" class="df-mode-label">POMODORO WORK</div>
+                <div id="df-primary-timer" class="df-timer-digits">25:00</div>
+                <div id="df-secondary-timer" class="df-secondary-digits">Clocked In: 00:00:00</div>
+            </div>
+
+            <div class="df-footer">
+                <div class="df-hint"><i class="fas fa-hand-pointer"></i> Tap anywhere to return to dashboard</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEEP FOCUS START PROMPT TOAST -->
+    <div id="deep-focus-prompt" class="df-prompt hidden">
+        <div class="df-prompt-inner">
+            <div class="df-prompt-icon"><i class="fas fa-moon"></i></div>
+            <div class="df-prompt-text">
+                <div class="df-prompt-title">Enter Deep Focus?</div>
+                <div class="df-prompt-desc">Ultra-dim OLED battery saver</div>
+            </div>
+            <div class="df-prompt-actions">
+                <button id="df-prompt-activate-btn" class="df-btn-primary">Enter</button>
+                <button id="df-prompt-dismiss-btn" class="df-btn-secondary">Later</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 100% VICTORY CELEBRATION OVERLAY -->
+    <div id="celebration-overlay" class="celebration-overlay hidden">
+        <canvas id="confetti-canvas"></canvas>
+
+        <div class="celebration-content">
+            <div class="victory-badge-pill">
+                <i class="fas fa-star"></i> MISSION COMPLETE <i class="fas fa-star"></i>
+            </div>
+
+            <h2 class="victory-h1">PROJECT 100% CONQUERED!</h2>
+            <p class="victory-subtitle">Outstanding work! You have driven this project across the finish line with complete dedication.</p>
+
+            <div class="xp-jackpot-box">
+                <div class="xp-stat">
+                    <span id="xp-jackpot-counter" class="val">+0 XP</span>
+                    <span class="lbl">Jackpot Bonus</span>
+                </div>
+                <div style="width: 1px; height: 32px; background: rgba(255,255,255,0.1);"></div>
+                <div class="xp-stat">
+                    <span class="val">LVL UP</span>
+                    <span class="lbl">Prestige Rank</span>
+                </div>
+                <div style="width: 1px; height: 32px; background: rgba(255,255,255,0.1);"></div>
+                <div class="xp-stat">
+                    <span id="celebration-rank-val" class="val" style="color: var(--accent-lime,#beff33);">S-RANK</span>
+                    <span class="lbl">Evaluation</span>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px;">
+                <button onclick="openCertificateModal()" style="width: 100%; padding: 13px; background: linear-gradient(135deg, #ffd700, #ff9900); border: none; border-radius: 12px; color: #000; font-size: 0.82rem; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 8px 20px rgba(255, 170, 0, 0.3);">
+                    <i class="fas fa-certificate"></i> View & Download Certificate
+                </button>
+                <button onclick="closeCelebrationOverlay()" style="width: 100%; padding: 11px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: rgba(255, 255, 255, 0.8); font-size: 0.78rem; font-weight: 700; cursor: pointer;">
+                    Continue to Workspace
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OFFICIAL PROJECT CERTIFICATE MODAL -->
+    <div id="certificate-modal" class="certificate-modal hidden">
+        <div class="certificate-card">
+            <button class="certificate-close" onclick="closeCertificateModal()"><i class="fas fa-times"></i></button>
+
+            <div style="text-align: center;">
+                <h3 style="font-size: 1.1rem; font-weight: 800; color: #fff;">Official Project Certificate</h3>
+                <p style="font-size: 0.72rem; color: var(--text-secondary);">Verified Completion Credential</p>
+            </div>
+
+            <!-- Canvas for Certificate Rendering -->
+            <canvas id="certificate-canvas" width="600" height="420"></canvas>
+
+            <div style="display: flex; gap: 10px;">
+                <button onclick="downloadCertificatePNG()" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #ffd700, #ff9900); border: none; border-radius: 12px; color: #000; font-size: 0.8rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 8px 20px rgba(255, 170, 0, 0.3);">
+                    <i class="fas fa-download"></i> Save PNG
+                </button>
+                <button onclick="copyCertificateShareText()" style="flex: 1; padding: 12px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: rgba(255, 255, 255, 0.85); font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;">
+                    <i class="fas fa-share-alt"></i> Copy Post Text
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SINGLE POLAROID IMAGE OVERLAY PREVIEW -->
+    <div id="polaroid-single-preview-modal" class="certificate-modal hidden" style="z-index: 100015;" onclick="closePolaroidSinglePreview()">
+        <div class="polaroid-single-card" onclick="event.stopPropagation()" style="position:relative; width:100%; max-width:360px; background:#ffffff; border-radius:14px; padding:12px 12px 18px; box-shadow:0 25px 60px rgba(0,0,0,0.85), 0 0 35px rgba(190,255,51,0.25); text-align:center; transform:rotate(-1deg); transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+            <!-- Close Button -->
+            <button type="button" class="polaroid-preview-close" onclick="closePolaroidSinglePreview()" aria-label="Close" style="position:absolute; top:-12px; right:-12px; width:34px; height:34px; border-radius:50%; background:#000; border:2px solid var(--accent-lime,#beff33); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.9rem; box-shadow:0 4px 12px rgba(0,0,0,0.5); z-index:10; transition:transform 0.2s;">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <!-- Polaroid Photo Imprint -->
+            <div style="background:#000; border-radius:8px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.18); margin-bottom:12px; max-height:55vh; display:flex; align-items:center; justify-content:center;">
+                <img id="polaroid-preview-img" src="" alt="Polaroid Dispatch" style="width:100%; height:auto; max-height:55vh; object-fit:contain; display:block;">
+            </div>
+
+            <!-- Polaroid Chin Details -->
+            <div style="padding:0 6px;">
+                <div id="polaroid-preview-day" style="color:#000; font-size:0.95rem; font-weight:900; letter-spacing:0.5px; text-transform:uppercase;">DAY 1</div>
+                <div id="polaroid-preview-date" style="color:#666; font-size:0.68rem; font-weight:600; margin-top:2px;">October 18, 2026</div>
+                <p id="polaroid-preview-done" style="color:#333; font-size:0.75rem; font-style:italic; margin-top:6px; line-height:1.4; max-height:60px; overflow-y:auto; word-break:break-word;"></p>
+            </div>
+
+            <!-- Action buttons (Save & Share) -->
+            <div style="display:flex; justify-content:center; gap:8px; margin-top:12px;">
+                <a id="polaroid-preview-download" href="#" download="ProTrack_Polaroid.jpg" class="btn-micro" style="padding:4px 12px; font-size:0.65rem; background:#111; color:#fff; text-decoration:none; border-radius:6px; font-weight:800; display:inline-flex; align-items:center; gap:5px;">
+                    <i class="fas fa-download"></i> Save
+                </a>
+                <button type="button" id="polaroid-preview-share" class="btn-micro" style="padding:4px 12px; font-size:0.65rem; background:rgba(79,172,254,0.15); color:var(--accent-blue,#4facfe); border:1px solid var(--accent-blue,#4facfe); border-radius:6px; font-weight:800; display:inline-flex; align-items:center; gap:5px;">
+                    <i class="fas fa-share-alt"></i> Share
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POLAROID MEMORY WALL MODAL -->
+    <div id="polaroid-wall-modal" class="certificate-modal hidden">
+        <div class="certificate-card" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <div style="text-align:left;">
+                    <h3 style="font-size: 1.15rem; font-weight: 800; color: #fff;"><i class="fas fa-images" style="color:var(--accent-lime)"></i> Polaroid Memory Wall</h3>
+                    <p style="font-size: 0.72rem; color: var(--text-secondary);">Your engineering journey captured day by day</p>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" id="timelapse-btn" onclick="startTimeLapse()" class="btn-micro" style="background:rgba(79,172,254,0.15); color:var(--accent-blue); border-color:var(--accent-blue);" title="Play time-lapse flipbook of all project photos">
+                        <i class="fas fa-play"></i> Time-Lapse
+                    </button>
+                    <button class="certificate-close" onclick="closePolaroidWall()" style="position:static;"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+
+            <div id="polaroid-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                <!-- Dynamically loaded Polaroid cards -->
+            </div>
+            
+            <div id="polaroid-empty" class="hidden" style="text-align: center; padding: 30px 10px; color: var(--text-secondary); font-size: 0.8rem;">
+                <i class="fas fa-camera fa-2x" style="opacity: 0.3; margin-bottom: 10px; display: block;"></i>
+                No Polaroid logs recorded yet. Submit your daily photo to build your memory wall!
+            </div>
+        </div>
+    </div>
+
+    <!-- TIMELAPSE MODAL -->
+    <div id="timelapse-modal" class="certificate-modal hidden" style="z-index: 100020;">
+        <div class="certificate-card" style="max-width: 480px; text-align: center; padding: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div style="font-weight:800; font-size:0.9rem; color:var(--accent-blue);">
+                    <i class="fas fa-film"></i> PROJECT TIME-LAPSE
+                </div>
+                <button class="certificate-close" onclick="stopTimeLapse()" style="position:static;"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="position:relative; min-height:280px; display:flex; align-items:center; justify-content:center; background:#000; border-radius:12px; overflow:hidden; border:1px solid var(--glass-border);">
+                <img id="timelapse-img" src="" style="max-width:100%; max-height:400px; object-fit:contain; display:block;">
+                <div id="timelapse-badge" style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.8); color:var(--accent-lime); padding:4px 10px; border-radius:8px; font-weight:800; font-size:0.75rem; border:1px solid rgba(190,255,51,0.3);">DAY 1</div>
+            </div>
+            <div style="margin-top:14px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <button id="timelapse-play-btn" onclick="toggleTimeLapsePlay()" class="btn" style="flex:1; padding:9px 14px; font-size:0.75rem; background:var(--accent-lime); color:#000; font-weight:900;">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button onclick="changeTimeLapseSpeed()" id="timelapse-speed-btn" class="btn btn-secondary" style="padding:9px 14px; font-size:0.75rem;">1x Speed</button>
+            </div>
+            <div style="margin-top:10px; font-size:0.68rem; color:var(--text-secondary);" id="timelapse-counter">Frame 1 of 1</div>
+        </div>
+    </div>
+
+    <!-- WEEKLY RETROSPECTIVE MODAL -->
+    <div id="weekly-recap-modal" class="certificate-modal hidden" style="z-index: 10006;">
+        <div class="certificate-card" style="max-width: 440px; padding: 24px; text-align: center;">
+            <button class="certificate-close" onclick="closeWeeklyRecap()"><i class="fas fa-times"></i></button>
+            <div style="font-size:0.7rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">
+                <i class="fas fa-chart-line"></i> MISSION PERFORMANCE
+            </div>
+            <h3 id="recap-week-title" style="font-size:1.15rem; font-weight:900; color:#fff; margin-bottom:16px;">Weekly Retrospective</h3>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:16px; text-align:left;">
+                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">DAYS LOGGED</div>
+                    <div id="recap-days" style="font-size:1.4rem; font-weight:900; color:var(--accent-lime); margin-top:2px;">0 / 7</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">FOCUS HOURS</div>
+                    <div id="recap-hours" style="font-size:1.4rem; font-weight:900; color:var(--accent-blue); margin-top:2px;">0.0h</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">BLOCKERS CRUSHED</div>
+                    <div id="recap-blockers" style="font-size:1.4rem; font-weight:900; color:#34c759; margin-top:2px;">0</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">XP GENERATED</div>
+                    <div id="recap-xp" style="font-size:1.4rem; font-weight:900; color:#f59e0b; margin-top:2px;">+0 XP</div>
+                </div>
+            </div>
+
+            <div id="recap-advisor-eval" style="background:rgba(190,255,51,0.05); border:1px solid rgba(190,255,51,0.2); border-radius:12px; padding:12px 14px; text-align:left; font-size:0.75rem; color:rgba(255,255,255,0.85); line-height:1.4; margin-bottom:16px;">
+                "Telemetry demonstrates consistent forward velocity. Keep pushing toward your next milestone."
+            </div>
+
+            <button onclick="shareWeeklyRecapText()" class="btn" style="width:100%; padding:12px; font-weight:900; font-size:0.8rem; background:var(--accent-lime); color:#000;">
+                <i class="fas fa-share-alt"></i> Share Weekly Summary
+            </button>
+        </div>
+    </div>
+
+    <!-- MYSTERY SUPPLY CRATE MODAL -->
+    <div id="crate-modal" class="certificate-modal hidden" style="z-index: 10010;">
+        <div class="certificate-card" style="max-width:350px; text-align:center; padding:28px 22px;">
+            <div style="font-size:0.72rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">
+                <i class="fas fa-box-open"></i> TACTICAL SUPPLY DROP
+            </div>
+            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:18px;">Telemetry analysis discovered an unallocated supply crate!</p>
+
+            <div id="crate-visual" class="crate-glow" onclick="openCrate()" style="font-size:4.5rem; margin-bottom:16px; cursor:pointer;">
+                📦
+            </div>
+
+            <div id="crate-result" class="hidden" style="margin-bottom:18px;">
+                <div id="crate-reward-icon" style="font-size:2.8rem; margin-bottom:6px;">⚡</div>
+                <div id="crate-reward-title" style="font-size:1.1rem; font-weight:900; color:#fff;">+100 Bonus XP</div>
+                <div id="crate-reward-desc" style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Emergency power cells routed</div>
+            </div>
+
+            <button id="crate-open-btn" onclick="openCrate()" class="btn" style="width:100%; padding:12px; font-weight:900; font-size:0.8rem; background:var(--accent-lime); color:#000;">
+                🔓 TAP TO UNBOX
+            </button>
+            <button id="crate-close-btn" onclick="closeCrateModal()" class="btn btn-secondary hidden" style="width:100%; padding:12px; font-weight:800; font-size:0.8rem;">
+                CLAIM & DISMISS
+            </button>
+        </div>
+    </div>
+
+    <!-- ENGINEER PROFILE & LOGOUT MODAL -->
+    <div id="engineer-profile-modal" class="certificate-modal hidden" style="z-index: 100060;">
+        <div class="certificate-card" style="max-width:380px; text-align:center; padding:28px 22px;">
+            <button class="certificate-close" onclick="closeEngineerProfileModal()"><i class="fas fa-times"></i></button>
+            <div style="font-size:0.7rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">
+                <i class="fas fa-user-astronaut"></i> ACTIVE ENGINEER
+            </div>
+            <h3 id="profile-modal-fullname" style="font-size:1.2rem; font-weight:900; color:#fff; margin-bottom:4px;">ENGINEER</h3>
+            <p id="profile-modal-rion-greeting" style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:20px; font-style:italic;"></p>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button type="button" onclick="syncWithCloudNow()" class="btn" style="padding:12px; font-weight:800; font-size:0.78rem; background:rgba(190,255,51,0.15); color:var(--accent-lime); border:1px solid rgba(190,255,51,0.3); display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fas fa-sync-alt"></i> Sync Telemetry With Cloud
+                </button>
+                <button type="button" onclick="switchEngineerAccount()" class="btn btn-secondary" style="padding:12px; font-weight:800; font-size:0.78rem; border-color:#ff4444; color:#ff4444; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fas fa-sign-out-alt"></i> Switch Engineer / Log Out
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM ALERT OVERLAY -->
+    <div id="custom-alert-overlay"
+        style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.82); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
+        <div
+            style="width:100%; max-width:340px; background:linear-gradient(135deg,#0d0d12,#12121a); border:1px solid rgba(190,255,51,0.2); border-radius:20px; padding:28px 24px; box-shadow:0 0 40px rgba(190,255,51,0.08), 0 20px 60px rgba(0,0,0,0.8); text-align:center;">
+            <div id="custom-alert-title"
+                style="font-size:1.05rem; font-weight:900; color:#fff; margin-bottom:12px; letter-spacing:0.5px;"></div>
+            <div id="custom-alert-body"
+                style="font-size:0.82rem; color:rgba(255,255,255,0.7); line-height:1.55; margin-bottom:24px;"></div>
+            <button onclick="document.getElementById('custom-alert-overlay').style.display='none'"
+                style="width:100%; padding:13px; background:linear-gradient(135deg,rgba(190,255,51,0.15),rgba(190,255,51,0.08)); border:1px solid rgba(190,255,51,0.35); border-radius:12px; color:var(--accent-lime,#beff33); font-size:0.8rem; font-weight:900; letter-spacing:2px; cursor:pointer; font-family:var(--font-family); transition:all 0.2s ease;">ACKNOWLEDGED</button>
+        </div>
+    </div>
+
     <script>
+
         /* 
           Version: 0.9.16
         */
@@ -4541,244 +4832,251 @@
 
         async function imprintImage(base64Source, text, stuckText, extraMeta) {
             return new Promise((resolve) => {
+                let isResolved = false;
+                const safeResolve = (val) => {
+                    if (!isResolved) {
+                        isResolved = true;
+                        clearTimeout(fallbackTimer);
+                        resolve(val);
+                    }
+                };
+                const fallbackTimer = setTimeout(() => {
+                    console.warn('[imprintImage] Generation timed out, falling back to original image.');
+                    safeResolve(base64Source);
+                }, 4000);
+
                 const img = new Image();
                 img.onload = () => {
-                    const cardW = 1200;
-                    const padX = 60;
-                    const padTop = 60;
-                    const photoW = cardW - (padX * 2); // 1080px
-                    const photoH = Math.round(img.height * (photoW / img.width));
+                    try {
+                        const cardW = 1200;
+                        const padX = 60;
+                        const padTop = 60;
+                        const photoW = cardW - (padX * 2); // 1080px
+                        const photoH = Math.round(img.height * (photoW / Math.max(1, img.width)));
 
-                    const active = (typeof getActiveProject === 'function' ? getActiveProject() : null) || {};
-                    const projectName = active.name || 'ProTrack Project';
-                    const projectDay = (typeof getProjectDay === 'function' ? getProjectDay() : 1);
-                    const streak = active.streak || 0;
-                    const progress = Math.round(active.progress || 0);
-                    const hours = (extraMeta && typeof extraMeta.hours === 'number') ? extraMeta.hours : 0;
-                    const logDate = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                        const active = (typeof getActiveProject === 'function' ? getActiveProject() : null) || {};
+                        const projectName = active.name || 'ProTrack Project';
+                        const projectDay = (typeof getProjectDay === 'function' ? getProjectDay() : 1);
+                        const streak = active.streak || 0;
+                        const progress = Math.round(active.progress || 0);
+                        const hours = (extraMeta && typeof extraMeta.hours === 'number') ? extraMeta.hours : 0;
+                        const logDate = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
-                    const rawDone = text !== undefined && text !== null ? text : '';
-                    const progressText = (typeof rawDone === 'string' ? rawDone : String(rawDone || '')).trim() || 'Daily progress logged.';
+                        const rawDone = text !== undefined && text !== null ? text : '';
+                        const progressText = (typeof rawDone === 'string' ? rawDone : String(rawDone || '')).trim() || 'Daily progress logged.';
 
-                    const rawStuck = stuckText !== undefined && stuckText !== null ? stuckText : (arguments[2] || '');
-                    const blockerContent = (typeof rawStuck === 'string' ? rawStuck : String(rawStuck || '')).trim();
-                    const hasBlocker = blockerContent.length > 0 &&
-                        blockerContent.toLowerCase() !== 'none' &&
-                        blockerContent.toLowerCase() !== 'n/a' &&
-                        blockerContent.toLowerCase() !== 'null' &&
-                        blockerContent.toLowerCase() !== 'undefined';
+                        const rawStuck = stuckText !== undefined && stuckText !== null ? stuckText : '';
+                        const blockerContent = (typeof rawStuck === 'string' ? rawStuck : String(rawStuck || '')).trim();
+                        const hasBlocker = blockerContent.length > 0 &&
+                            blockerContent.toLowerCase() !== 'none' &&
+                            blockerContent.toLowerCase() !== 'n/a' &&
+                            blockerContent.toLowerCase() !== 'null' &&
+                            blockerContent.toLowerCase() !== 'undefined';
 
-                    // Measurement Canvas for accurate text wrapping
-                    const mCanvas = document.createElement('canvas');
-                    const mCtx = mCanvas.getContext('2d');
+                        // Measurement Canvas for accurate text wrapping
+                        const mCanvas = document.createElement('canvas');
+                        const mCtx = mCanvas.getContext('2d');
 
-                    // Measure Progress text
-                    mCtx.font = '500 25px Inter, -apple-system, sans-serif';
-                    const progressLineHeight = 38;
-                    const progressLines = getWrappedLines(mCtx, progressText, photoW - 20);
+                        // Measure Progress text
+                        mCtx.font = '500 25px Inter, -apple-system, sans-serif';
+                        const progressLineHeight = 38;
+                        const progressLines = getWrappedLines(mCtx, progressText, photoW - 20);
 
-                    // Measure Blocker text if present
-                    const blockerLineHeight = 34;
-                    const blockerBoxPadX = 26;
-                    const blockerBoxPadY = 22;
-                    mCtx.font = '500 23px Inter, -apple-system, sans-serif';
-                    const blockerLines = hasBlocker
-                        ? getWrappedLines(mCtx, blockerContent, photoW - (blockerBoxPadX * 2))
-                        : [];
-                    const blockerBoxH = hasBlocker
-                        ? (blockerBoxPadY * 2) + 26 + 10 + (blockerLines.length * blockerLineHeight)
-                        : 0;
+                        // Measure Blocker text if present
+                        const blockerLineHeight = 34;
+                        const blockerBoxPadX = 26;
+                        const blockerBoxPadY = 22;
+                        mCtx.font = '500 23px Inter, -apple-system, sans-serif';
+                        const blockerLines = hasBlocker
+                            ? getWrappedLines(mCtx, blockerContent, photoW - (blockerBoxPadX * 2))
+                            : [];
+                        const blockerBoxH = hasBlocker
+                            ? (blockerBoxPadY * 2) + 26 + 10 + (blockerLines.length * blockerLineHeight)
+                            : 0;
 
-                    // Dynamic Bottom Space (Polaroid Chin) Calculation
-                    const chinTopGap = 45;
-                    const headerH = 75; // Day pill row + project title row
-                    const dividerGap = 24;
-                    const progressLabelH = 32;
-                    const progressTextH = Math.max(1, progressLines.length) * progressLineHeight;
-                    const blockerGap = hasBlocker ? 28 : 0;
-                    const footerGap = 35;
-                    const footerH = 26;
-                    const chinBottomPad = 50;
+                        // Dynamic Bottom Space (Polaroid Chin) Calculation
+                        const chinTopGap = 45;
+                        const headerH = 75; // Day pill row + project title row
+                        const dividerGap = 24;
+                        const progressLabelH = 32;
+                        const progressTextH = Math.max(1, progressLines.length) * progressLineHeight;
+                        const blockerGap = hasBlocker ? 28 : 0;
+                        const footerGap = 35;
+                        const footerH = 26;
+                        const chinBottomPad = 50;
 
-                    const contentNeededH = chinTopGap + headerH + dividerGap + progressLabelH + progressTextH + blockerGap + blockerBoxH + footerGap + footerH + chinBottomPad;
-                    const minChinH = 380; // Classic Polaroid proportions
-                    const actualChinH = Math.max(minChinH, contentNeededH);
+                        const contentNeededH = chinTopGap + headerH + dividerGap + progressLabelH + progressTextH + blockerGap + blockerBoxH + footerGap + footerH + chinBottomPad;
+                        const minChinH = 380; // Classic Polaroid proportions
+                        const actualChinH = Math.max(minChinH, contentNeededH);
 
-                    // Initialize Main Canvas
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = cardW;
-                    canvas.height = padTop + photoH + actualChinH;
+                        // Initialize Main Canvas
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = cardW;
+                        canvas.height = padTop + photoH + actualChinH;
 
-                    // 1. Polaroid White Body Background
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        // 1. Polaroid White Body Background
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    // Subtle outer card boundary (for high contrast when viewed against white)
-                    ctx.strokeStyle = '#E2E8F0';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+                        // Subtle outer card boundary
+                        ctx.strokeStyle = '#E2E8F0';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
 
-                    // 2. Draw Photo
-                    ctx.drawImage(img, padX, padTop, photoW, photoH);
+                        // 2. Draw Photo
+                        ctx.drawImage(img, padX, padTop, photoW, photoH);
 
-                    // Crisp Photo Frame Border
-                    ctx.strokeStyle = '#D1D5DB';
-                    ctx.lineWidth = 1.5;
-                    ctx.strokeRect(padX, padTop, photoW, photoH);
-
-                    // 3. Render Polaroid Bottom White Space Details
-                    const photoBottomY = padTop + photoH;
-                    let curY = photoBottomY + chinTopGap;
-
-                    // --- HEADER ROW 1: Day Badge + Hours (Left), Date (Right) ---
-                    // Day Badge Pill
-                    const dayText = `DAY ${projectDay}`;
-                    ctx.font = 'bold 17px Inter, sans-serif';
-                    const dayW = ctx.measureText(dayText).width + 30;
-                    const pillH = 34;
-
-                    ctx.fillStyle = '#0F172A';
-                    drawRoundRect(ctx, padX, curY, dayW, pillH, 8, true, false);
-
-                    ctx.fillStyle = '#BEFF33'; // ProTrack neon lime
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(dayText, padX + dayW / 2, curY + pillH / 2);
-
-                    let nextHeaderX = padX + dayW + 12;
-
-                    // Hours Pill (if logged)
-                    if (hours > 0) {
-                        const hrText = `⏱️ ${hours}h Logged`;
-                        ctx.font = '600 15px Inter, sans-serif';
-                        const hrW = ctx.measureText(hrText).width + 24;
-                        ctx.fillStyle = '#F1F5F9';
-                        drawRoundRect(ctx, nextHeaderX, curY, hrW, pillH, 8, true, false);
-                        ctx.strokeStyle = '#CBD5E1';
-                        ctx.lineWidth = 1;
-                        drawRoundRect(ctx, nextHeaderX, curY, hrW, pillH, 8, false, true);
-
-                        ctx.fillStyle = '#475569';
-                        ctx.fillText(hrText, nextHeaderX + hrW / 2, curY + pillH / 2);
-                    }
-
-                    // Date (Right-aligned)
-                    ctx.textAlign = 'right';
-                    ctx.textBaseline = 'middle';
-                    ctx.font = '600 18px Inter, sans-serif';
-                    ctx.fillStyle = '#64748B';
-                    ctx.fillText(logDate.toUpperCase(), padX + photoW, curY + pillH / 2);
-
-                    curY += pillH + 16;
-
-                    // --- HEADER ROW 2: Project Title ---
-                    ctx.textAlign = 'left';
-                    ctx.textBaseline = 'alphabetic';
-                    ctx.font = 'bold 30px Inter, sans-serif';
-                    ctx.fillStyle = '#0F172A';
-
-                    // Truncate project title if extraordinarily long
-                    let displayTitle = projectName;
-                    if (ctx.measureText(displayTitle).width > photoW) {
-                        while (displayTitle.length > 3 && ctx.measureText(displayTitle + '...').width > photoW) {
-                            displayTitle = displayTitle.slice(0, -1);
-                        }
-                        displayTitle += '...';
-                    }
-                    ctx.fillText(displayTitle, padX, curY + 24);
-
-                    curY += 34;
-
-                    // Header Divider
-                    ctx.strokeStyle = '#E2E8F0';
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    ctx.moveTo(padX, curY);
-                    ctx.lineTo(padX + photoW, curY);
-                    ctx.stroke();
-
-                    curY += dividerGap;
-
-                    // --- WORK ACCOMPLISHED / PROGRESS SECTION ---
-                    // Section Tag
-                    ctx.font = 'bold 15px Inter, sans-serif';
-                    ctx.fillStyle = '#059669'; // Emerald
-                    ctx.fillText('● WORK ACCOMPLISHED', padX, curY);
-
-                    curY += 26;
-
-                    // Progress Lines (Clean, non-overlapping, wrapped)
-                    ctx.font = '500 25px Inter, -apple-system, sans-serif';
-                    ctx.fillStyle = '#1E293B';
-                    for (let i = 0; i < progressLines.length; i++) {
-                        if (progressLines[i]) {
-                            ctx.fillText(progressLines[i], padX, curY);
-                        }
-                        curY += progressLineHeight;
-                    }
-
-                    // --- BLOCKERS / IMPEDIMENTS CALLOUT CARD (If Present) ---
-                    if (hasBlocker) {
-                        curY += 16;
-                        const boxY = curY;
-
-                        // Soft Red Callout Container
-                        ctx.fillStyle = '#FEF2F2';
-                        ctx.strokeStyle = '#FCA5A5';
+                        // Crisp Photo Frame Border
+                        ctx.strokeStyle = '#D1D5DB';
                         ctx.lineWidth = 1.5;
-                        drawRoundRect(ctx, padX, boxY, photoW, blockerBoxH, 12, true, true);
+                        ctx.strokeRect(padX, padTop, photoW, photoH);
 
-                        // Blocker Header
-                        ctx.font = 'bold 18px Inter, sans-serif';
-                        ctx.fillStyle = '#DC2626';
-                        ctx.fillText('⚠️ BLOCKER / IMPEDIMENT', padX + blockerBoxPadX, boxY + blockerBoxPadY + 14);
+                        // 3. Render Polaroid Bottom White Space Details
+                        const photoBottomY = padTop + photoH;
+                        let curY = photoBottomY + chinTopGap;
 
-                        // Blocker Lines
-                        ctx.font = '500 23px Inter, -apple-system, sans-serif';
-                        ctx.fillStyle = '#991B1B';
-                        let blockerTextY = boxY + blockerBoxPadY + 26 + 18;
-                        for (let b = 0; b < blockerLines.length; b++) {
-                            if (blockerLines[b]) {
-                                ctx.fillText(blockerLines[b], padX + blockerBoxPadX, blockerTextY);
-                            }
-                            blockerTextY += blockerLineHeight;
+                        // --- HEADER ROW 1: Day Badge + Hours (Left), Date (Right) ---
+                        const dayText = `DAY ${projectDay}`;
+                        ctx.font = 'bold 17px Inter, sans-serif';
+                        const dayW = ctx.measureText(dayText).width + 30;
+                        const pillH = 34;
+
+                        ctx.fillStyle = '#0F172A';
+                        drawRoundRect(ctx, padX, curY, dayW, pillH, 8, true, false);
+
+                        ctx.fillStyle = '#BEFF33'; // ProTrack neon lime
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(dayText, padX + dayW / 2, curY + pillH / 2);
+
+                        let nextHeaderX = padX + dayW + 12;
+
+                        // Hours Pill (if logged)
+                        if (hours > 0) {
+                            const hrText = `⏱️ ${hours}h Logged`;
+                            ctx.font = '600 15px Inter, sans-serif';
+                            const hrW = ctx.measureText(hrText).width + 24;
+                            ctx.fillStyle = '#F1F5F9';
+                            drawRoundRect(ctx, nextHeaderX, curY, hrW, pillH, 8, true, false);
+                            ctx.strokeStyle = '#CBD5E1';
+                            ctx.lineWidth = 1;
+                            drawRoundRect(ctx, nextHeaderX, curY, hrW, pillH, 8, false, true);
+
+                            ctx.fillStyle = '#475569';
+                            ctx.fillText(hrText, nextHeaderX + hrW / 2, curY + pillH / 2);
                         }
 
-                        curY = boxY + blockerBoxH;
+                        // Date (Right-aligned)
+                        ctx.textAlign = 'right';
+                        ctx.textBaseline = 'middle';
+                        ctx.font = '600 18px Inter, sans-serif';
+                        ctx.fillStyle = '#64748B';
+                        ctx.fillText(logDate.toUpperCase(), padX + photoW, curY + pillH / 2);
+
+                        curY += pillH + 16;
+
+                        // --- HEADER ROW 2: Project Title ---
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'alphabetic';
+                        ctx.font = 'bold 30px Inter, sans-serif';
+                        ctx.fillStyle = '#0F172A';
+
+                        let displayTitle = projectName;
+                        if (ctx.measureText(displayTitle).width > photoW) {
+                            while (displayTitle.length > 3 && ctx.measureText(displayTitle + '...').width > photoW) {
+                                displayTitle = displayTitle.slice(0, -1);
+                            }
+                            displayTitle += '...';
+                        }
+                        ctx.fillText(displayTitle, padX, curY + 24);
+
+                        curY += 34;
+
+                        // Header Divider
+                        ctx.strokeStyle = '#E2E8F0';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.moveTo(padX, curY);
+                        ctx.lineTo(padX + photoW, curY);
+                        ctx.stroke();
+
+                        curY += dividerGap;
+
+                        // --- WORK ACCOMPLISHED / PROGRESS SECTION ---
+                        ctx.font = 'bold 15px Inter, sans-serif';
+                        ctx.fillStyle = '#059669'; // Emerald
+                        ctx.fillText('● WORK ACCOMPLISHED', padX, curY);
+
+                        curY += 26;
+
+                        ctx.font = '500 25px Inter, -apple-system, sans-serif';
+                        ctx.fillStyle = '#1E293B';
+                        for (let i = 0; i < progressLines.length; i++) {
+                            if (progressLines[i]) {
+                                ctx.fillText(progressLines[i], padX, curY);
+                            }
+                            curY += progressLineHeight;
+                        }
+
+                        // --- BLOCKERS / IMPEDIMENTS CALLOUT CARD ---
+                        if (hasBlocker) {
+                            curY += 16;
+                            const boxY = curY;
+
+                            ctx.fillStyle = '#FEF2F2';
+                            ctx.strokeStyle = '#FCA5A5';
+                            ctx.lineWidth = 1.5;
+                            drawRoundRect(ctx, padX, boxY, photoW, blockerBoxH, 12, true, true);
+
+                            ctx.font = 'bold 18px Inter, sans-serif';
+                            ctx.fillStyle = '#DC2626';
+                            ctx.fillText('⚠️ BLOCKER / IMPEDIMENT', padX + blockerBoxPadX, boxY + blockerBoxPadY + 14);
+
+                            ctx.font = '500 23px Inter, -apple-system, sans-serif';
+                            ctx.fillStyle = '#991B1B';
+                            let blockerTextY = boxY + blockerBoxPadY + 26 + 18;
+                            for (let b = 0; b < blockerLines.length; b++) {
+                                if (blockerLines[b]) {
+                                    ctx.fillText(blockerLines[b], padX + blockerBoxPadX, blockerTextY);
+                                }
+                                blockerTextY += blockerLineHeight;
+                            }
+
+                            curY = boxY + blockerBoxH;
+                        }
+
+                        // --- FOOTER BAR ---
+                        const minFooterY = canvas.height - chinBottomPad;
+                        const finalFooterY = Math.max(curY + footerGap, minFooterY);
+
+                        ctx.strokeStyle = '#F1F5F9';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(padX, finalFooterY - 18);
+                        ctx.lineTo(padX + photoW, finalFooterY - 18);
+                        ctx.stroke();
+
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'alphabetic';
+                        ctx.font = '600 14px Inter, sans-serif';
+                        ctx.fillStyle = '#94A3B8';
+                        ctx.fillText('PRO-TRACK • FIELD DISPATCH LOG', padX, finalFooterY);
+
+                        ctx.textAlign = 'right';
+                        ctx.font = '600 15px Inter, sans-serif';
+                        ctx.fillStyle = '#64748B';
+                        const statsText = `⚡ ${streak} DAY STREAK  •  ${progress}% COMPLETED`;
+                        ctx.fillText(statsText, padX + photoW, finalFooterY);
+
+                        safeResolve(canvas.toDataURL('image/jpeg', 0.80));
+                    } catch (renderErr) {
+                        console.warn('[imprintImage] Error during canvas rendering:', renderErr);
+                        safeResolve(base64Source);
                     }
-
-                    // --- FOOTER BAR ---
-                    // Position footer either right after content or pinned to bottom if chin has extra min space
-                    const minFooterY = canvas.height - chinBottomPad;
-                    const finalFooterY = Math.max(curY + footerGap, minFooterY);
-
-                    // Footer divider
-                    ctx.strokeStyle = '#F1F5F9';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.moveTo(padX, finalFooterY - 18);
-                    ctx.lineTo(padX + photoW, finalFooterY - 18);
-                    ctx.stroke();
-
-                    // Left Branding
-                    ctx.textAlign = 'left';
-                    ctx.textBaseline = 'alphabetic';
-                    ctx.font = '600 14px Inter, sans-serif';
-                    ctx.fillStyle = '#94A3B8';
-                    ctx.fillText('PRO-TRACK • FIELD DISPATCH LOG', padX, finalFooterY);
-
-                    // Right Stats
-                    ctx.textAlign = 'right';
-                    ctx.font = '600 15px Inter, sans-serif';
-                    ctx.fillStyle = '#64748B';
-                    const statsText = `⚡ ${streak} DAY STREAK  •  ${progress}% COMPLETED`;
-                    ctx.fillText(statsText, padX + photoW, finalFooterY);
-
-                    resolve(canvas.toDataURL('image/jpeg', 0.80));
                 };
                 img.onerror = () => {
-                    resolve(base64Source);
+                    safeResolve(base64Source);
                 };
                 img.src = base64Source;
             });
@@ -6119,7 +6417,11 @@
                     status.innerText = `🔒 Locked at ${nextMilestone}% — Pass Peer Review to continue.`;
                     status.style.color = "var(--warning)";
                 }
-                btn.disabled = true; btn.style.opacity = "0.5";
+                if (btn) {
+                    btn.disabled = false;
+                    btn.style.opacity = "0.8";
+                    btn.title = `Locked at ${nextMilestone}% — Pass Peer Review to advance`;
+                }
             } else {
                 const descValidation = validateWorkDescription(journal.done, activeP ? activeP.history : []);
                 if (!descValidation.valid) {
@@ -6127,13 +6429,21 @@
                         status.innerText = descValidation.message;
                         status.style.color = "var(--error)";
                     }
-                    btn.disabled = true; btn.style.opacity = "0.5";
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.style.opacity = "0.9";
+                        btn.title = descValidation.message;
+                    }
                 } else {
                     if (status) {
                         status.innerText = "Entry requirements met.";
                         status.style.color = "var(--success)";
                     }
-                    btn.disabled = false; btn.style.opacity = "1";
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.style.opacity = "1";
+                        btn.title = "Ready to submit work entry";
+                    }
                 }
             }
         }
@@ -7516,170 +7826,217 @@
         };
         document.getElementById('log-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const active = getActiveProject();
-            if (!active) return;
+            const submitBtn = document.getElementById('submit-log-btn');
 
-            const todayStr = new Date().toLocaleDateString('en-CA');
-            const alreadyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
-            if (alreadyLogged) {
-                showAlert('🔒 Daily Entry Completed', 'You have already logged your work for today. Pro-Track enforces strict once-per-day logging to maintain streak authenticity. Come back tomorrow for your next entry!');
-                return;
+            try {
+                const active = getActiveProject();
+                if (!active) {
+                    showAlert('⚠️ No Active Project', 'Please initialize or select a project before logging daily work.');
+                    showSetup();
+                    return;
+                }
+
+                const todayStr = new Date().toLocaleDateString('en-CA');
+                const alreadyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+                if (alreadyLogged) {
+                    showAlert('🔒 Daily Entry Completed', 'You have already logged your work for today. Pro-Track enforces strict once-per-day logging to maintain streak authenticity. Come back tomorrow for your next entry!');
+                    return;
+                }
+
+                const rawDone = (document.getElementById('done-today').value || '').trim();
+                if (!rawDone) {
+                    showAlert('📝 Description Required', 'Please enter a description of the work and tasks you accomplished today.');
+                    document.getElementById('done-today').focus();
+                    return;
+                }
+
+                const descCheck = validateWorkDescription(rawDone, active.history);
+                if (!descCheck.valid) {
+                    showAlert('⚠️ Entry Incomplete', descCheck.message);
+                    document.getElementById('done-today').focus();
+                    return;
+                }
+
+                const photo = document.getElementById('photo-preview-img'); 
+                let photoSrc = photo ? photo.src : '';
+                if (!photoSrc || photoSrc.includes('index.html') || photo.style.display === 'none') {
+                    showAlert('📷 Photo Required', 'Visual evidence is required for each log. Tap the camera area to capture or attach your work photo.'); 
+                    return; 
+                }
+
+                const rawHours = parseFloat(document.getElementById('hours-worked').value || 0);
+                const rawResults = parseFloat(document.getElementById('results-count').value || 0);
+                const journal = { 
+                    done: rawDone, 
+                    results: Math.min(10, Math.max(0, rawResults)), 
+                    hours: Math.min(8.0, Math.max(0, rawHours)), 
+                    stuck: (document.getElementById('stuck-on').value || '').trim() 
+                };
+
+                let next = getNextMilestone(); 
+                if (active.progress >= next && !isMilestoneValidated(next)) { 
+                    showAlert('🔒 Milestone Gate', `Progress is locked at ${next}%. Pass a Peer Review (80%+) to advance.`); 
+                    return; 
+                }
+
+                const inc = calculateSmartProgress(journal, active); 
+                if (inc === 0) { 
+                    showAlert('⚠️ Insufficient Work', 'Add more detail or log your hours and tasks to earn progress.'); 
+                    return; 
+                }
+
+                // Show spinner on submit button
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving & Submitting Entry...';
+                }
+
+                const imprinted = await imprintImage(photo.src, journal.done, journal.stuck, journal);
+                const projectDay = getProjectDay();
+                await DB.save(active.id + "_" + projectDay, imprinted);
+
+                // Automatic Download to Gallery (safe against gesture policies)
+                try {
+                    const link = document.createElement('a'); 
+                    link.download = `ProTrack_Day${projectDay}.jpg`; 
+                    link.href = imprinted; 
+                    link.click();
+                } catch(dlErr) {
+                    console.warn('[SubmitLog] Auto-download error:', dlErr);
+                }
+
+                active.progress = Math.min((active.progress || 0) + inc, getProgressCap());
+                const logData = {
+                    day: projectDay,
+                    date: new Date().toISOString(),
+                    localDate: new Date().toLocaleDateString('en-CA'),
+                    inc,
+                    journal
+                };
+                const pts = Math.round(inc * 10);
+                const isCritical = Math.random() < 0.20;
+                let bonusXP = 0;
+                let bonusMsg = '';
+                if (isCritical) {
+                    bonusXP += Math.round(pts * 0.5);
+                    bonusMsg += ' 💥 CRITICAL 1.5x!';
+                }
+                if (state.comebackBonusEligible) {
+                    bonusXP += 50;
+                    bonusMsg += ' 🔥 COMEBACK +50 XP!';
+                    state.comebackBonusEligible = false;
+                    unlockRelic('phoenix-protocol');
+                }
+                const totalAwardedXP = pts + bonusXP;
+                state.globalXP = (state.globalXP || 0) + totalAwardedXP;
+                active.streak = (active.streak || 0) + 1;
+
+                if (active.streak % 7 === 0) {
+                    state.streakFreezes = Math.min(2, (state.streakFreezes || 0) + 1);
+                    setTimeout(() => {
+                        showAlert('🛡️ 7-Day Streak Milestone!', `Phenomenal discipline! You earned a complimentary Streak Freeze Shield (Holding: ${state.streakFreezes}/2).`);
+                    }, 1000);
+                }
+
+                // Progress rotating weekly tactical bounties
+                recordWeeklyQuestProgress('logs', 1);
+                const submitDayOfWeek = new Date().getDay();
+                if (submitDayOfWeek === 0 || submitDayOfWeek === 6) {
+                    recordWeeklyQuestProgress('weekend_logs', 1);
+                }
+                if (new Date().getHours() < 12) {
+                    recordWeeklyQuestProgress('early_logs', 1);
+                }
+                if (journal.hours > 0) {
+                    recordWeeklyQuestProgress('hours', journal.hours);
+                }
+                if (journal.results > 0) {
+                    recordWeeklyQuestProgress('milestones', journal.results);
+                }
+                if (photoSrc && !photoSrc.includes('index.html')) {
+                    recordWeeklyQuestProgress('photos', 1);
+                }
+                if (journal.stuck && journal.stuck.trim()) {
+                    recordWeeklyQuestProgress('blockers', 1);
+                }
+
+                // Reset and save
+                active.lastLogDate = logData.date;
+                active.history.push(logData);
+                active.clockTotalSeconds = 0;
+
+                // Persist individual record to IndexedDB historyLogs
+                DB.put('historyLogs', active.id + '_' + projectDay, {
+                    id: active.id + '_' + projectDay,
+                    projectId: active.id,
+                    day: projectDay,
+                    localDate: logData.localDate,
+                    logData: logData
+                }).catch(() => {});
+
+                // Clear draft
+                localStorage.removeItem('protrack_draft_' + active.id);
+                const draftNotice = document.getElementById('draft-notice');
+                if (draftNotice) draftNotice.classList.add('hidden');
+
+                // Background Cloud Sync to Google Drive & Google Sheets (silent, non-blocking)
+                CloudSync.syncLogEntry({
+                    projectId: active.id,
+                    projectName: active.name,
+                    day: projectDay,
+                    logDate: logData.localDate || new Date().toLocaleDateString(),
+                    workAccomplished: journal.done,
+                    hoursWorked: journal.hours,
+                    resultsCount: journal.results,
+                    blocker: journal.stuck || '',
+                    progressGain: inc,
+                    pointsEarned: totalAwardedXP,
+                    newProgress: active.progress,
+                    totalPoints: state.globalXP,
+                    streak: active.streak,
+                    totalDays: active.totalDays || 31,
+                    imprintedImage: imprinted,
+                    allowUpdate: true
+                }).catch(syncErr => console.warn('[CloudSync] Non-blocking sync error:', syncErr));
+
+                e.target.reset(); 
+                if (photo) photo.style.display = 'none';
+                const photoDropzone = document.getElementById('photo-dropzone');
+                if (photoDropzone) photoDropzone.classList.remove('has-image');
+
+                // IMPACT FX
+                document.body.classList.add('shake-screen');
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed'; overlay.style.top = '0'; overlay.style.left = '0'; overlay.style.width = '100%'; overlay.style.height = '100%';
+                overlay.style.background = 'rgba(190, 255, 51, 0.1)'; overlay.style.zIndex = '9999'; overlay.className = 'victory-flash';
+                document.body.appendChild(overlay);
+                setTimeout(() => { document.body.classList.remove('shake-screen'); overlay.remove(); }, 500);
+
+                checkRelicUnlocks(journal, active);
+                triggerCompanionReaction(journal, totalAwardedXP, isCritical);
+                SoundEngine.playLog(); 
+                showFloatingXP(totalAwardedXP, window.innerWidth / 2, window.innerHeight / 2, bonusMsg ? bonusMsg + ' +' : '+');
+
+                // 25% chance or every 5-day streak to trigger Tactical Supply Crate!
+                const wonCrate = (Math.random() < 0.25) || (active.streak > 0 && active.streak % 5 === 0);
+                if (wonCrate) {
+                    setTimeout(() => triggerMysteryCrate(), 900);
+                }
+
+                saveState(); 
+                updateUI(); 
+                const dashNav = document.querySelector('.nav-item[data-target="dashboard"]');
+                if (dashNav) dashNav.click();
+
+            } catch (err) {
+                console.error('[SubmitLog] Error during submission:', err);
+                showAlert('⚠️ Submission Error', 'An unexpected error occurred: ' + (err.message || err));
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Submit Work Entry';
+                }
             }
-
-            const rawHours = parseFloat(document.getElementById('hours-worked').value || 0);
-            const rawResults = parseFloat(document.getElementById('results-count').value || 0);
-            const journal = { 
-                done: document.getElementById('done-today').value.trim(), 
-                results: Math.min(10, Math.max(0, rawResults)), 
-                hours: Math.min(8.0, Math.max(0, rawHours)), 
-                stuck: document.getElementById('stuck-on').value.trim() 
-            };
-
-            const descCheck = validateWorkDescription(journal.done, active.history);
-            if (!descCheck.valid) {
-                showAlert('⚠️ Invalid Entry', descCheck.message);
-                return;
-            }
-
-            const photo = document.getElementById('photo-preview-img'); 
-            let photoSrc = photo.src;
-            if (!photoSrc || photoSrc.includes('index.html')) {
-                showAlert('📷 Photo Required', 'Visual evidence is required for each log. Tap the camera area to capture your work.'); 
-                return; 
-            }
-            const inc = calculateSmartProgress(journal, active); 
-            if (inc === 0) { 
-                showAlert('⚠️ Insufficient Work', 'Add more detail or log your hours and tasks to earn progress.'); 
-                return; 
-            }
-            let next = getNextMilestone(); 
-            if (active.progress >= next && !isMilestoneValidated(next)) { 
-                showAlert('🔒 Milestone Gate', `Progress is locked at ${next}%. Pass a Peer Review (80%+) to advance.`); 
-                return; 
-            }
-            const imprinted = await imprintImage(photo.src, journal.done, journal.stuck, journal);
-            const projectDay = getProjectDay();
-            await DB.save(active.id + "_" + projectDay, imprinted);
-
-            // Automatic Download to Gallery
-            const link = document.createElement('a'); link.download = `ProTrack_Day${projectDay}.jpg`; link.href = imprinted; link.click();
-
-            active.progress = Math.min((active.progress || 0) + inc, getProgressCap());
-            const logData = {
-                day: projectDay,
-                date: new Date().toISOString(),
-                localDate: new Date().toLocaleDateString('en-CA'),
-                inc,
-                journal
-            };
-            const pts = Math.round(inc * 10);
-            const isCritical = Math.random() < 0.20;
-            let bonusXP = 0;
-            let bonusMsg = '';
-            if (isCritical) {
-                bonusXP += Math.round(pts * 0.5);
-                bonusMsg += ' 💥 CRITICAL 1.5x!';
-            }
-            if (state.comebackBonusEligible) {
-                bonusXP += 50;
-                bonusMsg += ' 🔥 COMEBACK +50 XP!';
-                state.comebackBonusEligible = false;
-                unlockRelic('phoenix-protocol');
-            }
-            const totalAwardedXP = pts + bonusXP;
-            state.globalXP = (state.globalXP || 0) + totalAwardedXP;
-            active.streak = (active.streak || 0) + 1;
-
-            if (active.streak % 7 === 0) {
-                state.streakFreezes = Math.min(2, (state.streakFreezes || 0) + 1);
-                setTimeout(() => {
-                    showAlert('🛡️ 7-Day Streak Milestone!', `Phenomenal discipline! You earned a complimentary Streak Freeze Shield (Holding: ${state.streakFreezes}/2).`);
-                }, 1000);
-            }
-
-            // Progress rotating weekly tactical bounties
-            recordWeeklyQuestProgress('logs', 1);
-            const submitDayOfWeek = new Date().getDay();
-            if (submitDayOfWeek === 0 || submitDayOfWeek === 6) {
-                recordWeeklyQuestProgress('weekend_logs', 1);
-            }
-            if (new Date().getHours() < 12) {
-                recordWeeklyQuestProgress('early_logs', 1);
-            }
-            if (journal.hours > 0) {
-                recordWeeklyQuestProgress('hours', journal.hours);
-            }
-            if (journal.results > 0) {
-                recordWeeklyQuestProgress('milestones', journal.results);
-            }
-            if (photoSrc && !photoSrc.includes('index.html')) {
-                recordWeeklyQuestProgress('photos', 1);
-            }
-            if (journal.stuck && journal.stuck.trim()) {
-                recordWeeklyQuestProgress('blockers', 1);
-            }
-
-            // Reset and save
-            active.lastLogDate = logData.date;
-            active.history.push(logData);
-            active.clockTotalSeconds = 0;
-
-            // Persist individual record to IndexedDB historyLogs
-            DB.put('historyLogs', active.id + '_' + projectDay, {
-                id: active.id + '_' + projectDay,
-                projectId: active.id,
-                day: projectDay,
-                localDate: logData.localDate,
-                logData: logData
-            }).catch(() => {});
-
-            // Clear draft
-            localStorage.removeItem('protrack_draft_' + active.id);
-            const draftNotice = document.getElementById('draft-notice');
-            if (draftNotice) draftNotice.classList.add('hidden');
-
-            // Background Cloud Sync to Google Drive & Google Sheets (silent, no alert to user)
-            CloudSync.syncLogEntry({
-                projectId: active.id,
-                projectName: active.name,
-                day: projectDay,
-                logDate: logData.localDate || new Date().toLocaleDateString(),
-                workAccomplished: journal.done,
-                hoursWorked: journal.hours,
-                resultsCount: journal.results,
-                blocker: journal.stuck || '',
-                progressGain: inc,
-                pointsEarned: totalAwardedXP,
-                newProgress: active.progress,
-                totalPoints: state.globalXP,
-                streak: active.streak,
-                totalDays: active.totalDays || 31,
-                imprintedImage: imprinted,
-                allowUpdate: true
-            });
-
-            e.target.reset(); photo.style.display = 'none';
-            document.getElementById('photo-dropzone').classList.remove('has-image');
-
-            // IMPACT FX
-            document.body.classList.add('shake-screen');
-            const overlay = document.createElement('div');
-            overlay.style.position = 'fixed'; overlay.style.top = '0'; overlay.style.left = '0'; overlay.style.width = '100%'; overlay.style.height = '100%';
-            overlay.style.background = 'rgba(190, 255, 51, 0.1)'; overlay.style.zIndex = '9999'; overlay.className = 'victory-flash';
-            document.body.appendChild(overlay);
-            setTimeout(() => { document.body.classList.remove('shake-screen'); overlay.remove(); }, 500);
-
-            checkRelicUnlocks(journal, active);
-            triggerCompanionReaction(journal, totalAwardedXP, isCritical);
-            SoundEngine.playLog(); showFloatingXP(totalAwardedXP, window.innerWidth / 2, window.innerHeight / 2, bonusMsg ? bonusMsg + ' +' : '+');
-
-            // 25% chance or every 5-day streak to trigger Tactical Supply Crate!
-            const wonCrate = (Math.random() < 0.25) || (active.streak > 0 && active.streak % 5 === 0);
-            if (wonCrate) {
-                setTimeout(() => triggerMysteryCrate(), 900);
-            }
-
-            saveState(); updateUI(); document.querySelector('.nav-item[data-target="dashboard"]').click();
         });
         document.getElementById('photo-dropzone').addEventListener('click', () => document.getElementById('photo-input').click());
         document.getElementById('photo-input').addEventListener('change', (e) => {
@@ -8301,7 +8658,7 @@
             }
         }
 
-        (async () => { await loadState(); updateUI(); })();
+        // Initial boot deferred to end of unified script block
 
         // Global Audio Feedback for all buttons
         document.addEventListener('click', (e) => {
@@ -8309,295 +8666,9 @@
                 SoundEngine.playTick();
             }
         });
-    </script>
-    <div
-        style="font-size: 0.6rem; color: rgba(255,255,255,0.15); text-align: center; width: 100%; padding: 40px 0 20px; font-family: var(--font-family); letter-spacing: 0.5px; user-select: none; pointer-events: none;">
-        Developed by Robotics and Innovations Oriented Nexus.
-    </div>
+    
 
-    <!-- DEEP FOCUS OLED HUD OVERLAY -->
-    <div id="deep-focus-hud" class="deep-focus-overlay hidden" onclick="DeepFocus.exit()">
-        <div class="df-glow-ambient"></div>
-        <button class="df-exit-btn" onclick="DeepFocus.exit()" title="Exit Deep Focus"><i class="fas fa-times"></i></button>
-        <div class="df-content" onclick="event.stopPropagation(); DeepFocus.exit();">
-            <div class="df-header">
-                <span class="df-live-badge"><span class="df-pulse-dot"></span> DEEP FOCUS</span>
-                <span id="df-project-name" class="df-project-title">Focus Project</span>
-            </div>
-            
-            <div class="df-timer-wrap">
-                <div id="df-mode-label" class="df-mode-label">POMODORO WORK</div>
-                <div id="df-primary-timer" class="df-timer-digits">25:00</div>
-                <div id="df-secondary-timer" class="df-secondary-digits">Clocked In: 00:00:00</div>
-            </div>
-
-            <div class="df-footer">
-                <div class="df-hint"><i class="fas fa-hand-pointer"></i> Tap anywhere to return to dashboard</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- DEEP FOCUS START PROMPT TOAST -->
-    <div id="deep-focus-prompt" class="df-prompt hidden">
-        <div class="df-prompt-inner">
-            <div class="df-prompt-icon"><i class="fas fa-moon"></i></div>
-            <div class="df-prompt-text">
-                <div class="df-prompt-title">Enter Deep Focus?</div>
-                <div class="df-prompt-desc">Ultra-dim OLED battery saver</div>
-            </div>
-            <div class="df-prompt-actions">
-                <button id="df-prompt-activate-btn" class="df-btn-primary">Enter</button>
-                <button id="df-prompt-dismiss-btn" class="df-btn-secondary">Later</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 100% VICTORY CELEBRATION OVERLAY -->
-    <div id="celebration-overlay" class="celebration-overlay hidden">
-        <canvas id="confetti-canvas"></canvas>
-
-        <div class="celebration-content">
-            <div class="victory-badge-pill">
-                <i class="fas fa-star"></i> MISSION COMPLETE <i class="fas fa-star"></i>
-            </div>
-
-            <h2 class="victory-h1">PROJECT 100% CONQUERED!</h2>
-            <p class="victory-subtitle">Outstanding work! You have driven this project across the finish line with complete dedication.</p>
-
-            <div class="xp-jackpot-box">
-                <div class="xp-stat">
-                    <span id="xp-jackpot-counter" class="val">+0 XP</span>
-                    <span class="lbl">Jackpot Bonus</span>
-                </div>
-                <div style="width: 1px; height: 32px; background: rgba(255,255,255,0.1);"></div>
-                <div class="xp-stat">
-                    <span class="val">LVL UP</span>
-                    <span class="lbl">Prestige Rank</span>
-                </div>
-                <div style="width: 1px; height: 32px; background: rgba(255,255,255,0.1);"></div>
-                <div class="xp-stat">
-                    <span id="celebration-rank-val" class="val" style="color: var(--accent-lime,#beff33);">S-RANK</span>
-                    <span class="lbl">Evaluation</span>
-                </div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 4px;">
-                <button onclick="openCertificateModal()" style="width: 100%; padding: 13px; background: linear-gradient(135deg, #ffd700, #ff9900); border: none; border-radius: 12px; color: #000; font-size: 0.82rem; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 8px 20px rgba(255, 170, 0, 0.3);">
-                    <i class="fas fa-certificate"></i> View & Download Certificate
-                </button>
-                <button onclick="closeCelebrationOverlay()" style="width: 100%; padding: 11px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: rgba(255, 255, 255, 0.8); font-size: 0.78rem; font-weight: 700; cursor: pointer;">
-                    Continue to Workspace
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- OFFICIAL PROJECT CERTIFICATE MODAL -->
-    <div id="certificate-modal" class="certificate-modal hidden">
-        <div class="certificate-card">
-            <button class="certificate-close" onclick="closeCertificateModal()"><i class="fas fa-times"></i></button>
-
-            <div style="text-align: center;">
-                <h3 style="font-size: 1.1rem; font-weight: 800; color: #fff;">Official Project Certificate</h3>
-                <p style="font-size: 0.72rem; color: var(--text-secondary);">Verified Completion Credential</p>
-            </div>
-
-            <!-- Canvas for Certificate Rendering -->
-            <canvas id="certificate-canvas" width="600" height="420"></canvas>
-
-            <div style="display: flex; gap: 10px;">
-                <button onclick="downloadCertificatePNG()" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #ffd700, #ff9900); border: none; border-radius: 12px; color: #000; font-size: 0.8rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 8px 20px rgba(255, 170, 0, 0.3);">
-                    <i class="fas fa-download"></i> Save PNG
-                </button>
-                <button onclick="copyCertificateShareText()" style="flex: 1; padding: 12px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px; color: rgba(255, 255, 255, 0.85); font-size: 0.78rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;">
-                    <i class="fas fa-share-alt"></i> Copy Post Text
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- SINGLE POLAROID IMAGE OVERLAY PREVIEW -->
-    <div id="polaroid-single-preview-modal" class="certificate-modal hidden" style="z-index: 100015;" onclick="closePolaroidSinglePreview()">
-        <div class="polaroid-single-card" onclick="event.stopPropagation()" style="position:relative; width:100%; max-width:360px; background:#ffffff; border-radius:14px; padding:12px 12px 18px; box-shadow:0 25px 60px rgba(0,0,0,0.85), 0 0 35px rgba(190,255,51,0.25); text-align:center; transform:rotate(-1deg); transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
-            <!-- Close Button -->
-            <button type="button" class="polaroid-preview-close" onclick="closePolaroidSinglePreview()" aria-label="Close" style="position:absolute; top:-12px; right:-12px; width:34px; height:34px; border-radius:50%; background:#000; border:2px solid var(--accent-lime,#beff33); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:0.9rem; box-shadow:0 4px 12px rgba(0,0,0,0.5); z-index:10; transition:transform 0.2s;">
-                <i class="fas fa-times"></i>
-            </button>
-
-            <!-- Polaroid Photo Imprint -->
-            <div style="background:#000; border-radius:8px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.18); margin-bottom:12px; max-height:55vh; display:flex; align-items:center; justify-content:center;">
-                <img id="polaroid-preview-img" src="" alt="Polaroid Dispatch" style="width:100%; height:auto; max-height:55vh; object-fit:contain; display:block;">
-            </div>
-
-            <!-- Polaroid Chin Details -->
-            <div style="padding:0 6px;">
-                <div id="polaroid-preview-day" style="color:#000; font-size:0.95rem; font-weight:900; letter-spacing:0.5px; text-transform:uppercase;">DAY 1</div>
-                <div id="polaroid-preview-date" style="color:#666; font-size:0.68rem; font-weight:600; margin-top:2px;">October 18, 2026</div>
-                <p id="polaroid-preview-done" style="color:#333; font-size:0.75rem; font-style:italic; margin-top:6px; line-height:1.4; max-height:60px; overflow-y:auto; word-break:break-word;"></p>
-            </div>
-
-            <!-- Action buttons (Save & Share) -->
-            <div style="display:flex; justify-content:center; gap:8px; margin-top:12px;">
-                <a id="polaroid-preview-download" href="#" download="ProTrack_Polaroid.jpg" class="btn-micro" style="padding:4px 12px; font-size:0.65rem; background:#111; color:#fff; text-decoration:none; border-radius:6px; font-weight:800; display:inline-flex; align-items:center; gap:5px;">
-                    <i class="fas fa-download"></i> Save
-                </a>
-                <button type="button" id="polaroid-preview-share" class="btn-micro" style="padding:4px 12px; font-size:0.65rem; background:rgba(79,172,254,0.15); color:var(--accent-blue,#4facfe); border:1px solid var(--accent-blue,#4facfe); border-radius:6px; font-weight:800; display:inline-flex; align-items:center; gap:5px;">
-                    <i class="fas fa-share-alt"></i> Share
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- POLAROID MEMORY WALL MODAL -->
-    <div id="polaroid-wall-modal" class="certificate-modal hidden">
-        <div class="certificate-card" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                <div style="text-align:left;">
-                    <h3 style="font-size: 1.15rem; font-weight: 800; color: #fff;"><i class="fas fa-images" style="color:var(--accent-lime)"></i> Polaroid Memory Wall</h3>
-                    <p style="font-size: 0.72rem; color: var(--text-secondary);">Your engineering journey captured day by day</p>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <button type="button" id="timelapse-btn" onclick="startTimeLapse()" class="btn-micro" style="background:rgba(79,172,254,0.15); color:var(--accent-blue); border-color:var(--accent-blue);" title="Play time-lapse flipbook of all project photos">
-                        <i class="fas fa-play"></i> Time-Lapse
-                    </button>
-                    <button class="certificate-close" onclick="closePolaroidWall()" style="position:static;"><i class="fas fa-times"></i></button>
-                </div>
-            </div>
-
-            <div id="polaroid-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-bottom: 16px;">
-                <!-- Dynamically loaded Polaroid cards -->
-            </div>
-            
-            <div id="polaroid-empty" class="hidden" style="text-align: center; padding: 30px 10px; color: var(--text-secondary); font-size: 0.8rem;">
-                <i class="fas fa-camera fa-2x" style="opacity: 0.3; margin-bottom: 10px; display: block;"></i>
-                No Polaroid logs recorded yet. Submit your daily photo to build your memory wall!
-            </div>
-        </div>
-    </div>
-
-    <!-- TIMELAPSE MODAL -->
-    <div id="timelapse-modal" class="certificate-modal hidden" style="z-index: 100020;">
-        <div class="certificate-card" style="max-width: 480px; text-align: center; padding: 20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <div style="font-weight:800; font-size:0.9rem; color:var(--accent-blue);">
-                    <i class="fas fa-film"></i> PROJECT TIME-LAPSE
-                </div>
-                <button class="certificate-close" onclick="stopTimeLapse()" style="position:static;"><i class="fas fa-times"></i></button>
-            </div>
-            <div style="position:relative; min-height:280px; display:flex; align-items:center; justify-content:center; background:#000; border-radius:12px; overflow:hidden; border:1px solid var(--glass-border);">
-                <img id="timelapse-img" src="" style="max-width:100%; max-height:400px; object-fit:contain; display:block;">
-                <div id="timelapse-badge" style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.8); color:var(--accent-lime); padding:4px 10px; border-radius:8px; font-weight:800; font-size:0.75rem; border:1px solid rgba(190,255,51,0.3);">DAY 1</div>
-            </div>
-            <div style="margin-top:14px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                <button id="timelapse-play-btn" onclick="toggleTimeLapsePlay()" class="btn" style="flex:1; padding:9px 14px; font-size:0.75rem; background:var(--accent-lime); color:#000; font-weight:900;">
-                    <i class="fas fa-pause"></i> Pause
-                </button>
-                <button onclick="changeTimeLapseSpeed()" id="timelapse-speed-btn" class="btn btn-secondary" style="padding:9px 14px; font-size:0.75rem;">1x Speed</button>
-            </div>
-            <div style="margin-top:10px; font-size:0.68rem; color:var(--text-secondary);" id="timelapse-counter">Frame 1 of 1</div>
-        </div>
-    </div>
-
-    <!-- WEEKLY RETROSPECTIVE MODAL -->
-    <div id="weekly-recap-modal" class="certificate-modal hidden" style="z-index: 10006;">
-        <div class="certificate-card" style="max-width: 440px; padding: 24px; text-align: center;">
-            <button class="certificate-close" onclick="closeWeeklyRecap()"><i class="fas fa-times"></i></button>
-            <div style="font-size:0.7rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">
-                <i class="fas fa-chart-line"></i> MISSION PERFORMANCE
-            </div>
-            <h3 id="recap-week-title" style="font-size:1.15rem; font-weight:900; color:#fff; margin-bottom:16px;">Weekly Retrospective</h3>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:16px; text-align:left;">
-                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
-                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">DAYS LOGGED</div>
-                    <div id="recap-days" style="font-size:1.4rem; font-weight:900; color:var(--accent-lime); margin-top:2px;">0 / 7</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
-                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">FOCUS HOURS</div>
-                    <div id="recap-hours" style="font-size:1.4rem; font-weight:900; color:var(--accent-blue); margin-top:2px;">0.0h</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
-                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">BLOCKERS CRUSHED</div>
-                    <div id="recap-blockers" style="font-size:1.4rem; font-weight:900; color:#34c759; margin-top:2px;">0</div>
-                </div>
-                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
-                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">XP GENERATED</div>
-                    <div id="recap-xp" style="font-size:1.4rem; font-weight:900; color:#f59e0b; margin-top:2px;">+0 XP</div>
-                </div>
-            </div>
-
-            <div id="recap-advisor-eval" style="background:rgba(190,255,51,0.05); border:1px solid rgba(190,255,51,0.2); border-radius:12px; padding:12px 14px; text-align:left; font-size:0.75rem; color:rgba(255,255,255,0.85); line-height:1.4; margin-bottom:16px;">
-                "Telemetry demonstrates consistent forward velocity. Keep pushing toward your next milestone."
-            </div>
-
-            <button onclick="shareWeeklyRecapText()" class="btn" style="width:100%; padding:12px; font-weight:900; font-size:0.8rem; background:var(--accent-lime); color:#000;">
-                <i class="fas fa-share-alt"></i> Share Weekly Summary
-            </button>
-        </div>
-    </div>
-
-    <!-- MYSTERY SUPPLY CRATE MODAL -->
-    <div id="crate-modal" class="certificate-modal hidden" style="z-index: 10010;">
-        <div class="certificate-card" style="max-width:350px; text-align:center; padding:28px 22px;">
-            <div style="font-size:0.72rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">
-                <i class="fas fa-box-open"></i> TACTICAL SUPPLY DROP
-            </div>
-            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:18px;">Telemetry analysis discovered an unallocated supply crate!</p>
-
-            <div id="crate-visual" class="crate-glow" onclick="openCrate()" style="font-size:4.5rem; margin-bottom:16px; cursor:pointer;">
-                📦
-            </div>
-
-            <div id="crate-result" class="hidden" style="margin-bottom:18px;">
-                <div id="crate-reward-icon" style="font-size:2.8rem; margin-bottom:6px;">⚡</div>
-                <div id="crate-reward-title" style="font-size:1.1rem; font-weight:900; color:#fff;">+100 Bonus XP</div>
-                <div id="crate-reward-desc" style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Emergency power cells routed</div>
-            </div>
-
-            <button id="crate-open-btn" onclick="openCrate()" class="btn" style="width:100%; padding:12px; font-weight:900; font-size:0.8rem; background:var(--accent-lime); color:#000;">
-                🔓 TAP TO UNBOX
-            </button>
-            <button id="crate-close-btn" onclick="closeCrateModal()" class="btn btn-secondary hidden" style="width:100%; padding:12px; font-weight:800; font-size:0.8rem;">
-                CLAIM & DISMISS
-            </button>
-        </div>
-    </div>
-
-    <!-- ENGINEER PROFILE & LOGOUT MODAL -->
-    <div id="engineer-profile-modal" class="certificate-modal hidden" style="z-index: 100060;">
-        <div class="certificate-card" style="max-width:380px; text-align:center; padding:28px 22px;">
-            <button class="certificate-close" onclick="closeEngineerProfileModal()"><i class="fas fa-times"></i></button>
-            <div style="font-size:0.7rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">
-                <i class="fas fa-user-astronaut"></i> ACTIVE ENGINEER
-            </div>
-            <h3 id="profile-modal-fullname" style="font-size:1.2rem; font-weight:900; color:#fff; margin-bottom:4px;">ENGINEER</h3>
-            <p id="profile-modal-rion-greeting" style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:20px; font-style:italic;"></p>
-
-            <div style="display:flex; flex-direction:column; gap:10px;">
-                <button type="button" onclick="syncWithCloudNow()" class="btn" style="padding:12px; font-weight:800; font-size:0.78rem; background:rgba(190,255,51,0.15); color:var(--accent-lime); border:1px solid rgba(190,255,51,0.3); display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <i class="fas fa-sync-alt"></i> Sync Telemetry With Cloud
-                </button>
-                <button type="button" onclick="switchEngineerAccount()" class="btn btn-secondary" style="padding:12px; font-weight:800; font-size:0.78rem; border-color:#ff4444; color:#ff4444; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <i class="fas fa-sign-out-alt"></i> Switch Engineer / Log Out
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- CUSTOM ALERT OVERLAY -->
-    <div id="custom-alert-overlay"
-        style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.82); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
-        <div
-            style="width:100%; max-width:340px; background:linear-gradient(135deg,#0d0d12,#12121a); border:1px solid rgba(190,255,51,0.2); border-radius:20px; padding:28px 24px; box-shadow:0 0 40px rgba(190,255,51,0.08), 0 20px 60px rgba(0,0,0,0.8); text-align:center;">
-            <div id="custom-alert-title"
-                style="font-size:1.05rem; font-weight:900; color:#fff; margin-bottom:12px; letter-spacing:0.5px;"></div>
-            <div id="custom-alert-body"
-                style="font-size:0.82rem; color:rgba(255,255,255,0.7); line-height:1.55; margin-bottom:24px;"></div>
-            <button onclick="document.getElementById('custom-alert-overlay').style.display='none'"
-                style="width:100%; padding:13px; background:linear-gradient(135deg,rgba(190,255,51,0.15),rgba(190,255,51,0.08)); border:1px solid rgba(190,255,51,0.35); border-radius:12px; color:var(--accent-lime,#beff33); font-size:0.8rem; font-weight:900; letter-spacing:2px; cursor:pointer; font-family:var(--font-family); transition:all 0.2s ease;">ACKNOWLEDGED</button>
-        </div>
-    </div>
-    <script>
+        // ==================== UNIFIED R.I.O.N. AUTH & GLOBAL HELPERS ====================
         // R.I.O.N. Authentication & Session Engine
         function showRionAuth() {
             const overlay = document.getElementById('rion-auth-overlay');
@@ -8805,6 +8876,17 @@
                 });
             });
         }
+
+        // ==================== APPLICATION INITIALIZATION BOOTSTRAP ====================
+        (async () => {
+            try {
+                await loadState();
+                updateUI();
+            } catch(bootErr) {
+                console.error('[Boot] Initialization error:', bootErr);
+            }
+        })();
+    
     </script>
 </body>
 
