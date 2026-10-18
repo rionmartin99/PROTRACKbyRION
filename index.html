@@ -1,12 +1,12 @@
 <!--
-  Version: 2.5.7
-  Date: 2026-10-18 8:50 PM
+  Version: 2.5.8
+  Date: 2026-10-18 9:02 PM
   Change Log:
+  - 2026-10-18 9:02 PM: Fix: Rebalance and greatly reduce Tactical Supply Crate drop probability to 5% and re-tune loot pool [Fix]
   - 2026-10-18 8:50 PM: Fix: Ensure project integrity, initialize history array, and resolve TypeError Cannot read properties of undefined (reading 'push') during log submission [Fix]
   - 2026-10-18 7:35 PM: Fix: Unify scripts, remove disabled state on submit button, add active validation alerts, and harden image imprinting [Fix]
   - 2026-10-18: Fix: Enable immediate online dispatch in CloudSync, fix IndexedDB keyPath DataError, and auto-sync active projects to Google Sheets [Fix]
   - 2026-10-18: Fix: Add explicit confirmation dialog and cloud sync upon project deletion [Fix]
-  - 2026-10-18: Fix: Enable allowUpdate on daily dispatches, add no-cors cloud sync fallback, extend timeout to 60s, and optimize image payload [Fix]
 -->
 
 
@@ -6000,16 +6000,18 @@
             closeBtn.classList.add('hidden');
 
             const roll = Math.random();
-            if (roll < 0.45) {
-                const bonus = Math.floor(Math.random() * 3 + 1) * 50;
+            if (roll < 0.70) {
+                // 70% chance: modest XP (25, 35, or 50 XP)
+                const bonus = [25, 35, 50][Math.floor(Math.random() * 3)];
                 pendingCrateReward = {
                     type: 'xp',
                     value: bonus,
                     icon: '⚡',
                     title: `+${bonus} Bonus XP`,
-                    desc: 'Requisitioned raw energy cells'
+                    desc: 'Requisitioned field energy cache'
                 };
-            } else if (roll < 0.75 && (state.streakFreezes || 0) < 2) {
+            } else if (roll < 0.90 && (state.streakFreezes || 0) < 2) {
+                // 20% chance: streak freeze shield (if holding < 2)
                 pendingCrateReward = {
                     type: 'freeze',
                     value: 1,
@@ -6018,6 +6020,7 @@
                     desc: 'Emergency automated streak preservation'
                 };
             } else {
+                // 10% chance: rare accessory unlock
                 const unlocked = state.unlockedAccessories || ['none'];
                 const allKeys = Object.keys(ACCESSORIES).filter(k => k !== 'none' && !unlocked.includes(k));
                 if (allKeys.length > 0) {
@@ -6027,14 +6030,14 @@
                         value: picked,
                         icon: ACCESSORIES[picked].emoji || '🎁',
                         title: `${ACCESSORIES[picked].name} Unlocked!`,
-                        desc: 'Exclusive Companion Accessory'
+                        desc: 'Rare Companion Accessory'
                     };
                 } else {
                     pendingCrateReward = {
                         type: 'xp',
-                        value: 200,
+                        value: 50,
                         icon: '⚡',
-                        title: '+200 Bonus XP',
+                        title: '+50 Bonus XP',
                         desc: 'Requisitioned surplus energy cells'
                     };
                 }
@@ -8036,8 +8039,8 @@
                 SoundEngine.playLog(); 
                 showFloatingXP(totalAwardedXP, window.innerWidth / 2, window.innerHeight / 2, bonusMsg ? bonusMsg + ' +' : '+');
 
-                // 25% chance or every 5-day streak to trigger Tactical Supply Crate!
-                const wonCrate = (Math.random() < 0.25) || (active.streak > 0 && active.streak % 5 === 0);
+                // 5% chance or every 10-day streak to trigger Tactical Supply Crate!
+                const wonCrate = (Math.random() < 0.05) || (active.streak > 0 && active.streak % 10 === 0);
                 if (wonCrate) {
                     setTimeout(() => triggerMysteryCrate(), 900);
                 }
