@@ -1,12 +1,12 @@
 <!--
-  Version: 2.4.2
-  Date: 2026-10-18 3:16 PM
+  Version: 2.4.3
+  Date: 2026-10-18 4:58 PM
   Change Log:
+  - 2026-10-18: Fix: Prevent calendar today styling from wiping photo background and center preview on image [Fix]
   - 2026-10-18: Fix: Automatically close Polaroid Memory Wall overlay when launching Time-Lapse flipbook [Fix]
   - 2026-10-18: Fix: Removed countdown display from calendar polaroid preview while retaining quiet 6s auto-close [Fix]
   - 2026-10-18: Feature: Calendar polaroid overlay preview with close button and 6-second auto-close timer [New Feature]
   - 2026-10-18: Feature: Added Service Worker PWA caching, IndexedDB state offload, hardened Apps Script sync queue, and batched RAF rendering [New Feature]
-  - 2026-10-18: Fix: Calendar resets to current date and month on launch, with reliable date formatting and Today button [Fix]
 -->
 
 
@@ -1907,7 +1907,8 @@
         .calendar-box.has-log {
             border: 1.5px solid var(--accent-lime);
             background-size: cover;
-            background-position: center;
+            background-position: center 25%;
+            background-repeat: no-repeat;
             color: #fff;
             text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
         }
@@ -1927,7 +1928,7 @@
         .calendar-box.today {
             border: 2px solid var(--accent-lime);
             box-shadow: 0 0 15px rgba(190, 255, 51, 0.45);
-            background: rgba(190, 255, 51, 0.08);
+            background-color: rgba(190, 255, 51, 0.08);
         }
 
         .calendar-box.milestone::after {
@@ -7047,9 +7048,9 @@
             if (!active) return;
             const logMap = new Map();
             (active.history || []).forEach(h => {
-                if (h && h.date) {
-                    const dStr = h.date.split('T')[0];
-                    logMap.set(dStr, h);
+                if (h) {
+                    if (h.localDate) logMap.set(h.localDate, h);
+                    if (h.date) logMap.set(h.date.split('T')[0], h);
                 }
             });
 
@@ -7089,13 +7090,19 @@
                     div.classList.add('has-log');
                     const log = logMap.get(dateStr);
                     const photoKey = active.id + "_" + log.day;
+                    const applyPhotoBg = (photoUrl) => {
+                        div.style.backgroundImage = `url(${photoUrl})`;
+                        div.style.backgroundSize = 'cover';
+                        div.style.backgroundPosition = 'center 25%';
+                        div.style.backgroundRepeat = 'no-repeat';
+                    };
                     if (DB.photoCache.has(photoKey)) {
-                        div.style.backgroundImage = `url(${DB.photoCache.get(photoKey)})`;
+                        applyPhotoBg(DB.photoCache.get(photoKey));
                     } else {
                         DB.get(photoKey).then(photo => {
                             if (photo) {
                                 DB.photoCache.set(photoKey, photo);
-                                div.style.backgroundImage = `url(${photo})`;
+                                applyPhotoBg(photo);
                             }
                         });
                     }
@@ -7192,7 +7199,7 @@
 
         async function viewDayDetails(date, targetDiv) {
             const active = getActiveProject();
-            const log = active.history.find(h => h.date && h.date.split('T')[0] === date); if (!log) return;
+            const log = active.history.find(h => (h.localDate === date) || (h.date && h.date.split('T')[0] === date)); if (!log) return;
             const photo = await DB.get(active.id + "_" + log.day);
             if (photo) {
                 // If there is an image, show the Polaroid overlay preview with close button and 6s auto-close delay
