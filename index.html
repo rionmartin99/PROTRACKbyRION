@@ -1,12 +1,12 @@
 <!--
-  Version: 1.9.0
-  Date: 2026-09-12 9:30 PM
+  Version: 2.1.2
+  Date: 2026-10-18 8:15 AM
   Change Log:
-  - 2026-09-12: Feature: Hardened anti-cheat system with capped daily inputs, text entropy filter, concealed ranking mechanics, and cumulative focus hours [New Feature]
-  - 2026-09-12: Feature: Dynamic multi-factor Rank evaluation (S, A, B, C) based on streak consistency, schedule pacing, and total focus hours [New Feature]
-  - 2026-09-12: Feature: 100% completion system with Stage 5 Ascended Golden Robot, Grand Fanfare, XP Jackpot, and Shareable Project Certificate [New Feature]
-  - 2026-09-12: Fix: Corrected project name rendering in Deep Focus HUD from undefined to active.name [Fix]
-  - 2026-09-12: Feature: Linked custom app icon, favicon, and PWA manifest for home screen installation [New Feature]
+  - 2026-10-18: Fix: Enforced strict once-per-day logging with dedicated Today's Dispatch Complete card to prevent score abuse [Fix]
+  - 2026-10-17: Fix: Unblocked daily log typing, enabled updating today's log, and fixed clipped companion speech bubble [Fix]
+  - 2026-10-17: Feature: Activity log chips, time-lapse player, native share sheet, mystery crates, and companion sync meter [New Feature]
+  - 2026-10-17: Fix: Real-time autoSaveLogDraft wired to inputs and steppers, tab restore enabled, and floating XP visual polish [Fix]
+  - 2026-10-17: Feature: Major engagement overhaul: voice dictation, draft auto-save, streak freeze shields, active blocker follow-ups, weekly quests, critical XP boosts, and Polaroid Wall gallery [New Feature]
 -->
 
 
@@ -2018,11 +2018,108 @@
 
         .scifi-hud img {
             width: 100%;
-            height: 160px;
-            object-fit: cover;
+            max-height: 250px;
+            height: auto;
+            object-fit: contain;
             border-radius: 8px;
             margin-bottom: 10px;
             border: 1px solid rgba(190, 255, 51, 0.2);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .btn-micro {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 3px 9px;
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-micro:hover {
+            background: rgba(190, 255, 51, 0.12);
+            color: var(--accent-lime);
+            border-color: rgba(190, 255, 51, 0.35);
+        }
+        .btn-micro.listening {
+            background: rgba(255, 68, 68, 0.25);
+            border-color: #ff4444;
+            color: #ff4444;
+            animation: pulse-mic 1.2s infinite;
+        }
+        @keyframes pulse-mic {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.06); opacity: 0.75; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .streak-freeze-tag {
+            font-size: 0.58rem;
+            font-weight: 800;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 8px;
+            padding: 2px 7px;
+            margin-top: 5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .streak-freeze-tag:hover {
+            background: rgba(56, 189, 248, 0.25);
+            transform: translateY(-1px);
+        }
+        .companion-bubble {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(20, 30, 20, 0.98));
+            border: 1.5px solid var(--accent-lime);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(190, 255, 51, 0.12);
+            border-radius: 12px;
+            padding: 10px 14px;
+            color: #ffffff;
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1.45;
+            margin-top: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            animation: popBubble 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+        @keyframes popBubble {
+            0% { opacity: 0; transform: translateY(-4px) scale(0.97); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .quest-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .quest-progress-bar {
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .quest-progress-fill {
+            height: 100%;
+            background: var(--accent-lime);
+            border-radius: 3px;
+            transition: width 0.3s ease;
         }
 
         .hud-title {
@@ -2493,6 +2590,75 @@
                 opacity: 0;
             }
         }
+
+        /* Log Activity Starters */
+        .starter-chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-secondary);
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 4px 9px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .starter-chip:hover, .starter-chip:active {
+            background: rgba(190, 255, 51, 0.15);
+            border-color: var(--accent-lime);
+            color: var(--accent-lime);
+            transform: translateY(-1px);
+        }
+
+        /* Companion Poke & Sync Tag */
+        @keyframes companionPokeWiggle {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            25% { transform: scale(1.08) rotate(-4deg); }
+            75% { transform: scale(1.08) rotate(4deg); }
+        }
+        .companion-poked {
+            animation: companionPokeWiggle 0.4s ease;
+        }
+        .companion-sync-tag {
+            font-size: 0.62rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 4px;
+            border: 1px solid rgba(52, 199, 89, 0.3);
+            background: rgba(52, 199, 89, 0.08);
+            color: var(--success);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .companion-sync-tag.sync-dimmed {
+            border-color: rgba(255, 204, 0, 0.35);
+            background: rgba(255, 204, 0, 0.08);
+            color: var(--warning);
+        }
+        .companion-sync-tag.sync-critical {
+            border-color: rgba(255, 59, 48, 0.4);
+            background: rgba(255, 59, 48, 0.1);
+            color: var(--error);
+            animation: pulse-mic 2s infinite;
+        }
+
+        /* Mystery Crate Animation */
+        @keyframes crateHover {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(2deg); }
+        }
+        .crate-glow {
+            animation: crateHover 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.6));
+        }
     </style>
 </head>
 
@@ -2575,9 +2741,52 @@
                 </div>
             </header>
 
+            <!-- Streak at Risk Warning Banner -->
+            <div id="streak-risk-banner" class="hidden" style="background: linear-gradient(135deg, rgba(255, 68, 68, 0.15), rgba(0,0,0,0.7)); border: 1px solid #ff4444; border-radius: 14px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="display:flex; align-items:center; gap:9px;">
+                    <i class="fas fa-hourglass-half" style="color:#ff4444; font-size:1.15rem; animation: pulse-mic 1s infinite;"></i>
+                    <div>
+                        <div style="font-weight:800; font-size:0.78rem; color:#ff4444; letter-spacing:0.5px;">STREAK AT RISK</div>
+                        <div style="font-size:0.65rem; color:var(--text-secondary);">Log today before midnight to protect your <span id="risk-streak-count" style="font-weight:800; color:#fff;">0</span>-day streak!</div>
+                    </div>
+                </div>
+                <button onclick="document.querySelector('.nav-item[data-target=\'logging\']').click()" class="btn" style="padding:6px 12px; font-size:0.68rem; background:#ff4444; color:#fff; font-weight:800; white-space:nowrap;">Log Now</button>
+            </div>
+
+            <!-- Comeback Surge Banner -->
+            <div id="comeback-banner" class="hidden" style="background: linear-gradient(135deg, rgba(255, 153, 0, 0.15), rgba(0,0,0,0.6)); border: 1px solid #ff9900; border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="font-size: 1.6rem;">🔥</div>
+                    <div>
+                        <div style="font-weight: 800; font-size: 0.82rem; color: #ffaa00;">COMEBACK SURGE ACTIVE</div>
+                        <div style="font-size: 0.67rem; color: var(--text-secondary);">Submit today's log to reignite momentum &amp; claim <b style="color:var(--accent-lime)">+50 Bonus XP</b>!</div>
+                    </div>
+                </div>
+                <button onclick="document.querySelector('.nav-item[data-target=\'logging\']').click()" class="btn" style="padding: 6px 12px; font-size: 0.68rem; background: #ff9900; color: #000; font-weight: 900; white-space:nowrap;">Log Work</button>
+            </div>
+
+            <!-- Active Blocker Follow-Up Card -->
+            <div id="active-blocker-card" class="card hidden" style="border-left: 4px solid #ff4444; background: linear-gradient(135deg, rgba(255,68,68,0.1), rgba(0,0,0,0.5)); margin-bottom: 16px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                    <span style="font-size:0.7rem; font-weight:800; color:#ff4444; text-transform:uppercase; letter-spacing:1px;">
+                        <i class="fas fa-exclamation-triangle"></i> Tactical Blocker Check-In
+                    </span>
+                    <span id="blocker-day-badge" style="font-size:0.65rem; color:var(--text-secondary); background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:6px;">DAY X</span>
+                </div>
+                <p id="active-blocker-text" style="font-size:0.85rem; font-weight:600; margin-bottom:12px; color:#fff; line-height:1.4;">"..."</p>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" onclick="resolveActiveBlocker()" class="btn" style="background:#059669; padding:8px 12px; font-size:0.7rem; flex:1; font-weight:800;">
+                        <i class="fas fa-check-circle"></i> Resolved Today! (+50 XP)
+                    </button>
+                    <button type="button" onclick="continueActiveBlocker()" class="btn" style="background:rgba(255,255,255,0.08); padding:8px 12px; font-size:0.7rem;">
+                        Ongoing
+                    </button>
+                </div>
+            </div>
+
             <div id="advisor-box" class="advisor-card">
                 <div class="advisor-hud-col-left">
-                    <div class="advisor-avatar" id="advisor-avatar" onclick="openRelicVault()">
+                    <div class="advisor-avatar" id="advisor-avatar" onclick="interactWithCompanion()" title="Tap to interact with R.I.O.N.">
                         <!-- Rendered via JS -->
                     </div>
                     <div id="streak-indicator" class="streak-badge-mini">
@@ -2585,10 +2794,23 @@
                         <span id="streak-days">0</span>
                     </div>
                     <div id="streak-detail-label" class="streak-detail-label">DAY STREAK</div>
+                    <div id="streak-freeze-tag" class="streak-freeze-tag" onclick="openMarket()" title="Streak Freeze Shields (Click to buy in shop)">
+                        <i class="fas fa-shield-alt"></i> <span id="streak-freeze-count">1</span> Shield
+                    </div>
+                    <div id="companion-sync-tag" class="companion-sync-tag" onclick="interactWithCompanion()" title="Companion Core Sync: 100% (Recharged by logging daily)">
+                        <i class="fas fa-bolt"></i> <span id="companion-sync-pct">100%</span> Sync
+                    </div>
                 </div>
                 <div class="advisor-content">
-                    <div class="nexus-comms-header">
+                    <div class="nexus-comms-header" style="display:flex; justify-content:space-between; align-items:center;">
                         <span>PROJECT ADVISOR</span>
+                        <button type="button" onclick="openRelicVault()" style="background:none; border:none; color:var(--accent-lime); font-size:0.65rem; cursor:pointer; font-weight:800;" title="View Unlocked Relics">
+                            <i class="fas fa-trophy"></i> Vault
+                        </button>
+                    </div>
+                    <div id="companion-speech-bubble" class="companion-bubble hidden">
+                        <i class="fas fa-comment-dots" style="color:var(--accent-lime); margin-right:6px; flex-shrink:0; margin-top:2px;"></i>
+                        <span id="companion-speech-text"></span>
                     </div>
                     <p id="advisor-text">Awaiting project telemetry...</p>
                     <div id="advisor-bios-line" class="advisor-bios-line">[BOOTING...]</div>
@@ -2608,6 +2830,9 @@
                         style="font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px;">
                         Calendar</h2>
                     <button id="next-month-btn" class="calendar-nav-btn"><i class="fas fa-chevron-right"></i></button>
+                    <button type="button" onclick="openPolaroidWall()" class="btn-micro" style="margin-left:auto; font-weight:700;" title="View all daily polaroids">
+                        <i class="fas fa-images"></i> Wall
+                    </button>
                 </div>
                 <div class="calendar-grid">
                     <div class="calendar-day-label">M</div>
@@ -2617,6 +2842,26 @@
                     <div class="calendar-day-label">F</div>
                     <div class="calendar-day-label">S</div>
                     <div class="calendar-day-label">S</div>
+                </div>
+            </div>
+
+            <!-- Weekly Quests HUD -->
+            <div id="weekly-quests-card" class="card" style="margin-bottom: 16px; border: 1px solid rgba(190, 255, 51, 0.2); background: linear-gradient(135deg, rgba(20, 25, 15, 0.7), rgba(15, 15, 20, 0.7));">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.75rem; font-weight: 900; color: var(--accent-lime); letter-spacing: 1.5px; text-transform: uppercase;">
+                            <i class="fas fa-tasks"></i> Weekly Tactical Bounties
+                        </span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span id="quest-reset-timer" style="font-size: 0.62rem; color: var(--text-secondary); font-weight: 700;">RESETS IN 4D</span>
+                        <button type="button" onclick="openWeeklyRecap()" class="btn-micro" style="padding:2px 7px; font-size:0.6rem;" title="View weekly performance recap">
+                            <i class="fas fa-chart-line"></i> Recap
+                        </button>
+                    </div>
+                </div>
+                <div id="quest-items-list" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- Rendered via JS -->
                 </div>
             </div>
 
@@ -2707,14 +2952,107 @@
         <section id="logging" class="page hidden">
             <header>
                 <h1>Daily Log</h1>
-                <p>Record substantial work</p>
+                <p id="logging-header-subtitle">Record substantial work</p>
             </header>
-            <div class="card">
+
+            <!-- TODAY DISPATCH COMPLETED VIEW (Strict once-per-day enforcement) -->
+            <div id="today-dispatch-card" class="card hidden" style="text-align: center; padding: 22px 18px; border: 1.5px solid rgba(16, 185, 129, 0.4); background: radial-gradient(circle at top, rgba(16, 185, 129, 0.08), transparent 70%), var(--card-bg);">
+                <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(16, 185, 129, 0.15); border:1px solid #10b981; padding:6px 16px; border-radius:20px; color:#10b981; font-weight:900; font-size:0.75rem; letter-spacing:1px; text-transform:uppercase; margin-bottom:14px;">
+                    <i class="fas fa-check-double"></i> MISSION COMPLETE TODAY
+                </div>
+                <h2 style="font-size:1.35rem; font-weight:900; color:#ffffff; margin:0 0 6px;">Day <span id="tdc-day-num">1</span> Dispatched!</h2>
+                <p style="font-size:0.8rem; color:var(--text-secondary); margin:0 0 16px;">Your progress, metrics, and visual evidence are permanently archived for today.</p>
+
+                <!-- Polaroid photo thumbnail preview -->
+                <div id="tdc-photo-container" style="margin: 0 auto 16px; max-width: 240px; background:#000; padding:8px 8px 12px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.1); cursor:pointer;" onclick="openPolaroidWall()" title="Tap to open Polaroid Wall">
+                    <img id="tdc-photo-img" src="" alt="Today's Polaroid" style="width:100%; border-radius:8px; display:block; object-fit:cover; aspect-ratio:1/1;">
+                    <div style="margin-top:8px; font-size:0.65rem; color:var(--text-secondary); font-family:monospace;">
+                        <i class="fas fa-camera"></i> Day <span id="tdc-photo-day">1</span> Visual Archive
+                    </div>
+                </div>
+
+                <!-- Stats summary grid -->
+                <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:16px; text-align:left;">
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                        <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700; text-transform:uppercase;">Time Dedicated</div>
+                        <div style="font-size:1.2rem; font-weight:900; color:var(--accent-lime); margin-top:2px;">
+                            <span id="tdc-hours">0.0</span> hrs
+                        </div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                        <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700; text-transform:uppercase;">Tasks Finished</div>
+                        <div style="font-size:1.2rem; font-weight:900; color:var(--accent-blue); margin-top:2px;">
+                            <span id="tdc-tasks">0</span> milestones
+                        </div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                        <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700; text-transform:uppercase;">Progress Gain</div>
+                        <div style="font-size:1.2rem; font-weight:900; color:#10b981; margin-top:2px;">
+                            +<span id="tdc-inc">0.0</span>%
+                        </div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                        <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700; text-transform:uppercase;">Day Streak</div>
+                        <div style="font-size:1.2rem; font-weight:900; color:#f59e0b; margin-top:2px;">
+                            <i class="fas fa-fire"></i> <span id="tdc-streak">1</span> Days
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Accomplished details block -->
+                <div style="background:rgba(255,255,255,0.03); border:1px solid var(--glass-border); border-radius:12px; padding:14px; text-align:left; margin-bottom:14px;">
+                    <div style="font-size:0.68rem; font-weight:800; color:var(--text-secondary); text-transform:uppercase; margin-bottom:6px;">
+                        <i class="fas fa-clipboard-check" style="color:var(--accent-lime);"></i> What Was Done
+                    </div>
+                    <div id="tdc-done-text" style="font-size:0.82rem; color:#f1f5f9; line-height:1.5;"></div>
+                    <div id="tdc-stuck-box" style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); display:none;">
+                        <div style="font-size:0.68rem; font-weight:800; color:#f87171; text-transform:uppercase; margin-bottom:4px;">
+                            <i class="fas fa-bug"></i> Blocker Noted
+                        </div>
+                        <div id="tdc-stuck-text" style="font-size:0.78rem; color:#cbd5e1; line-height:1.4;"></div>
+                    </div>
+                </div>
+
+                <!-- Anti-abuse info notice -->
+                <div style="background:rgba(190,255,51,0.05); border:1px solid rgba(190,255,51,0.2); border-radius:10px; padding:10px 14px; font-size:0.7rem; color:var(--text-secondary); line-height:1.4; display:flex; align-items:center; gap:8px; text-align:left; margin-bottom:16px;">
+                    <i class="fas fa-shield-alt" style="color:var(--accent-lime); font-size:1.1rem; flex-shrink:0;"></i>
+                    <span><strong>Strict Accountability:</strong> Daily logs are immutable once submitted to guarantee score authenticity. Your next submission window opens tomorrow at midnight!</span>
+                </div>
+
+                <div style="display:flex; gap:10px;">
+                    <button type="button" onclick="openPolaroidWall()" class="btn btn-secondary" style="flex:1; padding:12px; font-size:0.8rem;">
+                        <i class="fas fa-images"></i> Gallery Wall
+                    </button>
+                    <button type="button" onclick="document.querySelector('.nav-item[data-target=\'dashboard\']').click()" class="btn" style="flex:1; padding:12px; font-size:0.8rem;">
+                        <i class="fas fa-home"></i> Dashboard
+                    </button>
+                </div>
+            </div>
+
+            <div id="log-form-card" class="card">
                 <form id="log-form" class="log-form">
+                    <!-- Draft restoration notice -->
+                    <div id="draft-notice" class="hidden" style="background:rgba(190,255,51,0.08); border:1px solid rgba(190,255,51,0.3); border-radius:10px; padding:8px 12px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; font-size:0.75rem;">
+                        <span style="color:var(--accent-lime); font-weight:700;"><i class="fas fa-file-alt"></i> Restored unsubmitted draft</span>
+                        <button type="button" onclick="clearDraft()" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:0.7rem; text-decoration:underline;">Discard</button>
+                    </div>
+
                     <div class="input-group">
-                        <label>Done Today</label>
-                        <textarea id="done-today" placeholder="Be descriptive! Progress requires 30+ characters."
-                            required></textarea>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <label style="margin:0;">Done Today</label>
+                            <button type="button" id="voice-done-btn" onclick="toggleVoiceDictation('done-today', this)" class="btn-micro" title="Speak to dictate your log (optional)">
+                                <i class="fas fa-microphone"></i> <span>Dictate</span>
+                            </button>
+                        </div>
+                        <div class="log-starters" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+                            <button type="button" class="starter-chip" onclick="insertLogStarter('[Coding] ')">💻 Coding</button>
+                            <button type="button" class="starter-chip" onclick="insertLogStarter('[Assembly] ')">🔧 Assembly</button>
+                            <button type="button" class="starter-chip" onclick="insertLogStarter('[CAD/3D] ')">📐 CAD/3D</button>
+                            <button type="button" class="starter-chip" onclick="insertLogStarter('[Testing] ')">🧪 Testing</button>
+                            <button type="button" class="starter-chip" onclick="insertLogStarter('[Debug] ')">🐛 Debug</button>
+                            <button type="button" class="starter-chip" onclick="insertLogStarter('[Research] ')">📚 Research</button>
+                        </div>
+                        <textarea id="done-today" placeholder="Type your accomplishments freely or tap Dictate (min 30 characters)..." style="pointer-events: auto; user-select: text;" required></textarea>
                     </div>
                     <div class="stat-grid" style="margin-bottom: 0;">
                         <div class="input-group">
@@ -2733,7 +3071,12 @@
                                 passed; max 10/day).</span>
                         </div>
                         <div class="input-group">
-                            <label>Hours Dedicated</label>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <label style="margin:0;">Hours Dedicated</label>
+                                <button type="button" id="sync-clock-btn" onclick="syncFocusHoursToLog()" class="btn-micro" title="Import logged focus timer hours">
+                                    <i class="fas fa-stopwatch"></i> <span>Sync Timer</span>
+                                </button>
+                            </div>
                             <div class="stepper-control">
                                 <button type="button" class="stepper-btn" data-input="hours-worked"
                                     data-dir="-0.5">—</button>
@@ -2749,8 +3092,13 @@
                         </div>
                     </div>
                     <div class="input-group">
-                        <label>Stuck On</label>
-                        <textarea id="stuck-on" placeholder="Any blockers?"></textarea>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <label style="margin:0;">Stuck On (Blockers)</label>
+                            <button type="button" id="voice-stuck-btn" onclick="toggleVoiceDictation('stuck-on', this)" class="btn-micro" title="Speak to dictate blockers (optional)">
+                                <i class="fas fa-microphone"></i> <span>Dictate</span>
+                            </button>
+                        </div>
+                        <textarea id="stuck-on" placeholder="Type any technical hurdles or tap Dictate (optional)..." style="pointer-events: auto; user-select: text;"></textarea>
                     </div>
                     <div class="input-group">
                         <label>Visual Evidence</label>
@@ -3175,6 +3523,10 @@
             </div>
         </header>
         <h3
+            style="font-size: 0.7rem; text-transform: uppercase; color: #38bdf8; letter-spacing: 1.5px; margin-bottom: 12px;">
+            🛡️ Tactical Equipment</h3>
+        <div id="market-supplies" style="margin-bottom: 24px;"></div>
+        <h3
             style="font-size: 0.7rem; text-transform: uppercase; color: var(--accent-blue); letter-spacing: 1.5px; margin-bottom: 12px;">
             🎨 Interface Themes</h3>
         <div id="theme-grid" style="display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 28px;"></div>
@@ -3384,7 +3736,11 @@
             activeTheme: 'default',
             unlockedAccessories: ['none'],
             activeAccessory: { head: 'none', face: 'none', side: 'none', emblem_c: 'none', emblem_l: 'none' },
-            globalXP: 0
+            globalXP: 0,
+            streakFreezes: 1,
+            quests: null,
+            comebackBonusEligible: false,
+            notificationsEnabled: false
         };
 
         function getActiveProject() {
@@ -3488,54 +3844,336 @@
             }
         };
 
-        function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-            const words = text.split(' ');
-            let line = '';
-            for (let n = 0; n < words.length; n++) {
-                const testLine = line + words[n] + ' ';
-                const metrics = ctx.measureText(testLine);
-                const testWidth = metrics.width;
-                if (testWidth > maxWidth && n > 0) {
-                    ctx.fillText(line, x, y);
-                    line = words[n] + ' ';
-                    y += lineHeight;
-                } else {
-                    line = testLine;
+        function drawRoundRect(ctx, x, y, w, h, r, fill, stroke) {
+            if (typeof ctx.roundRect === 'function') {
+                ctx.beginPath();
+                ctx.roundRect(x, y, w, h, r);
+                ctx.closePath();
+                if (fill) ctx.fill();
+                if (stroke) ctx.stroke();
+                return;
+            }
+            let radius = r;
+            if (typeof radius === 'number') {
+                radius = { tl: radius, tr: radius, br: radius, bl: radius };
+            } else {
+                radius = Object.assign({ tl: 0, tr: 0, br: 0, bl: 0 }, radius);
+            }
+            ctx.beginPath();
+            ctx.moveTo(x + radius.tl, y);
+            ctx.lineTo(x + w - radius.tr, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + radius.tr);
+            ctx.lineTo(x + w, y + h - radius.br);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - radius.br, y + h);
+            ctx.lineTo(x + radius.bl, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - radius.bl);
+            ctx.lineTo(x, y + radius.tl);
+            ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+            ctx.closePath();
+            if (fill) ctx.fill();
+            if (stroke) ctx.stroke();
+        }
+
+        function getWrappedLines(ctx, text, maxWidth) {
+            if (!text) return [];
+            const paragraphs = String(text).split(/\r?\n/);
+            const lines = [];
+
+            for (let p = 0; p < paragraphs.length; p++) {
+                const paragraph = paragraphs[p].trim();
+                if (!paragraph) {
+                    if (lines.length > 0 && lines[lines.length - 1] !== '') {
+                        lines.push('');
+                    }
+                    continue;
+                }
+
+                const words = paragraph.split(/\s+/);
+                let currentLine = '';
+
+                for (let w = 0; w < words.length; w++) {
+                    const word = words[w];
+                    const testLine = currentLine ? currentLine + ' ' + word : word;
+                    if (ctx.measureText(testLine).width > maxWidth) {
+                        if (currentLine) {
+                            lines.push(currentLine);
+                            if (ctx.measureText(word).width > maxWidth) {
+                                let partial = '';
+                                for (let c = 0; c < word.length; c++) {
+                                    if (ctx.measureText(partial + word[c]).width > maxWidth) {
+                                        lines.push(partial);
+                                        partial = word[c];
+                                    } else {
+                                        partial += word[c];
+                                    }
+                                }
+                                currentLine = partial;
+                            } else {
+                                currentLine = word;
+                            }
+                        } else {
+                            let partial = '';
+                            for (let c = 0; c < word.length; c++) {
+                                if (ctx.measureText(partial + word[c]).width > maxWidth) {
+                                    lines.push(partial);
+                                    partial = word[c];
+                                } else {
+                                    partial += word[c];
+                                }
+                            }
+                            currentLine = partial;
+                        }
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+                if (currentLine) {
+                    lines.push(currentLine);
                 }
             }
-            ctx.fillText(line, x, y);
-            return y;
+            return lines;
         }
-        async function imprintImage(base64Source, text) {
+
+        async function imprintImage(base64Source, text, stuckText, extraMeta) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
+                    const cardW = 1200;
+                    const padX = 60;
+                    const padTop = 60;
+                    const photoW = cardW - (padX * 2); // 1080px
+                    const photoH = Math.round(img.height * (photoW / img.width));
+
+                    const active = (typeof getActiveProject === 'function' ? getActiveProject() : null) || {};
+                    const projectName = active.name || 'ProTrack Project';
+                    const projectDay = (typeof getProjectDay === 'function' ? getProjectDay() : 1);
+                    const streak = active.streak || 0;
+                    const progress = Math.round(active.progress || 0);
+                    const hours = (extraMeta && typeof extraMeta.hours === 'number') ? extraMeta.hours : 0;
+                    const logDate = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+                    const rawDone = text !== undefined && text !== null ? text : '';
+                    const progressText = (typeof rawDone === 'string' ? rawDone : String(rawDone || '')).trim() || 'Daily progress logged.';
+
+                    const rawStuck = stuckText !== undefined && stuckText !== null ? stuckText : (arguments[2] || '');
+                    const blockerContent = (typeof rawStuck === 'string' ? rawStuck : String(rawStuck || '')).trim();
+                    const hasBlocker = blockerContent.length > 0 &&
+                        blockerContent.toLowerCase() !== 'none' &&
+                        blockerContent.toLowerCase() !== 'n/a' &&
+                        blockerContent.toLowerCase() !== 'null' &&
+                        blockerContent.toLowerCase() !== 'undefined';
+
+                    // Measurement Canvas for accurate text wrapping
+                    const mCanvas = document.createElement('canvas');
+                    const mCtx = mCanvas.getContext('2d');
+
+                    // Measure Progress text
+                    mCtx.font = '500 25px Inter, -apple-system, sans-serif';
+                    const progressLineHeight = 38;
+                    const progressLines = getWrappedLines(mCtx, progressText, photoW - 20);
+
+                    // Measure Blocker text if present
+                    const blockerLineHeight = 34;
+                    const blockerBoxPadX = 26;
+                    const blockerBoxPadY = 22;
+                    mCtx.font = '500 23px Inter, -apple-system, sans-serif';
+                    const blockerLines = hasBlocker
+                        ? getWrappedLines(mCtx, blockerContent, photoW - (blockerBoxPadX * 2))
+                        : [];
+                    const blockerBoxH = hasBlocker
+                        ? (blockerBoxPadY * 2) + 26 + 10 + (blockerLines.length * blockerLineHeight)
+                        : 0;
+
+                    // Dynamic Bottom Space (Polaroid Chin) Calculation
+                    const chinTopGap = 45;
+                    const headerH = 75; // Day pill row + project title row
+                    const dividerGap = 24;
+                    const progressLabelH = 32;
+                    const progressTextH = Math.max(1, progressLines.length) * progressLineHeight;
+                    const blockerGap = hasBlocker ? 28 : 0;
+                    const footerGap = 35;
+                    const footerH = 26;
+                    const chinBottomPad = 50;
+
+                    const contentNeededH = chinTopGap + headerH + dividerGap + progressLabelH + progressTextH + blockerGap + blockerBoxH + footerGap + footerH + chinBottomPad;
+                    const minChinH = 380; // Classic Polaroid proportions
+                    const actualChinH = Math.max(minChinH, contentNeededH);
+
+                    // Initialize Main Canvas
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
-                    const scale = 1280 / img.width;
-                    canvas.width = 1280; canvas.height = img.height * scale;
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    canvas.width = cardW;
+                    canvas.height = padTop + photoH + actualChinH;
 
-                    // Fixed footer height for wrapping text
-                    const footerH = 200;
-                    const gradient = ctx.createLinearGradient(0, canvas.height - footerH, 0, canvas.height);
-                    gradient.addColorStop(0, 'rgba(0,0,0,0)'); gradient.addColorStop(1, 'rgba(0,0,10,0.95)');
-                    ctx.fillStyle = gradient; ctx.fillRect(0, canvas.height - footerH, canvas.width, footerH);
+                    // 1. Polaroid White Body Background
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    ctx.fillStyle = '#beff33'; ctx.font = 'bold 36px Inter, sans-serif'; ctx.textAlign = 'center';
-                    const logDate = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-                    const active = getActiveProject();
-                    ctx.fillText(`${active.name} | ${logDate}`, canvas.width / 2, canvas.height - 140);
+                    // Subtle outer card boundary (for high contrast when viewed against white)
+                    ctx.strokeStyle = '#E2E8F0';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
 
-                    ctx.fillStyle = '#ffffff'; ctx.font = '30px Inter, sans-serif';
-                    wrapText(ctx, `"${text}"`, canvas.width / 2, canvas.height - 85, 1100, 40);
+                    // 2. Draw Photo
+                    ctx.drawImage(img, padX, padTop, photoW, photoH);
 
-                    if (arguments[2]) { // If stuckText is provided
-                        ctx.fillStyle = '#ff4444'; ctx.font = 'bold 22px Inter, sans-serif';
-                        wrapText(ctx, `BLOCKER: ${arguments[2]}`, canvas.width / 2, canvas.height - 35, 1100, 30);
+                    // Crisp Photo Frame Border
+                    ctx.strokeStyle = '#D1D5DB';
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(padX, padTop, photoW, photoH);
+
+                    // 3. Render Polaroid Bottom White Space Details
+                    const photoBottomY = padTop + photoH;
+                    let curY = photoBottomY + chinTopGap;
+
+                    // --- HEADER ROW 1: Day Badge + Hours (Left), Date (Right) ---
+                    // Day Badge Pill
+                    const dayText = `DAY ${projectDay}`;
+                    ctx.font = 'bold 17px Inter, sans-serif';
+                    const dayW = ctx.measureText(dayText).width + 30;
+                    const pillH = 34;
+
+                    ctx.fillStyle = '#0F172A';
+                    drawRoundRect(ctx, padX, curY, dayW, pillH, 8, true, false);
+
+                    ctx.fillStyle = '#BEFF33'; // ProTrack neon lime
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(dayText, padX + dayW / 2, curY + pillH / 2);
+
+                    let nextHeaderX = padX + dayW + 12;
+
+                    // Hours Pill (if logged)
+                    if (hours > 0) {
+                        const hrText = `⏱️ ${hours}h Logged`;
+                        ctx.font = '600 15px Inter, sans-serif';
+                        const hrW = ctx.measureText(hrText).width + 24;
+                        ctx.fillStyle = '#F1F5F9';
+                        drawRoundRect(ctx, nextHeaderX, curY, hrW, pillH, 8, true, false);
+                        ctx.strokeStyle = '#CBD5E1';
+                        ctx.lineWidth = 1;
+                        drawRoundRect(ctx, nextHeaderX, curY, hrW, pillH, 8, false, true);
+
+                        ctx.fillStyle = '#475569';
+                        ctx.fillText(hrText, nextHeaderX + hrW / 2, curY + pillH / 2);
                     }
 
-                    resolve(canvas.toDataURL('image/jpeg', 0.9));
+                    // Date (Right-aligned)
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = '600 18px Inter, sans-serif';
+                    ctx.fillStyle = '#64748B';
+                    ctx.fillText(logDate.toUpperCase(), padX + photoW, curY + pillH / 2);
+
+                    curY += pillH + 16;
+
+                    // --- HEADER ROW 2: Project Title ---
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.font = 'bold 30px Inter, sans-serif';
+                    ctx.fillStyle = '#0F172A';
+
+                    // Truncate project title if extraordinarily long
+                    let displayTitle = projectName;
+                    if (ctx.measureText(displayTitle).width > photoW) {
+                        while (displayTitle.length > 3 && ctx.measureText(displayTitle + '...').width > photoW) {
+                            displayTitle = displayTitle.slice(0, -1);
+                        }
+                        displayTitle += '...';
+                    }
+                    ctx.fillText(displayTitle, padX, curY + 24);
+
+                    curY += 34;
+
+                    // Header Divider
+                    ctx.strokeStyle = '#E2E8F0';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(padX, curY);
+                    ctx.lineTo(padX + photoW, curY);
+                    ctx.stroke();
+
+                    curY += dividerGap;
+
+                    // --- WORK ACCOMPLISHED / PROGRESS SECTION ---
+                    // Section Tag
+                    ctx.font = 'bold 15px Inter, sans-serif';
+                    ctx.fillStyle = '#059669'; // Emerald
+                    ctx.fillText('● WORK ACCOMPLISHED', padX, curY);
+
+                    curY += 26;
+
+                    // Progress Lines (Clean, non-overlapping, wrapped)
+                    ctx.font = '500 25px Inter, -apple-system, sans-serif';
+                    ctx.fillStyle = '#1E293B';
+                    for (let i = 0; i < progressLines.length; i++) {
+                        if (progressLines[i]) {
+                            ctx.fillText(progressLines[i], padX, curY);
+                        }
+                        curY += progressLineHeight;
+                    }
+
+                    // --- BLOCKERS / IMPEDIMENTS CALLOUT CARD (If Present) ---
+                    if (hasBlocker) {
+                        curY += 16;
+                        const boxY = curY;
+
+                        // Soft Red Callout Container
+                        ctx.fillStyle = '#FEF2F2';
+                        ctx.strokeStyle = '#FCA5A5';
+                        ctx.lineWidth = 1.5;
+                        drawRoundRect(ctx, padX, boxY, photoW, blockerBoxH, 12, true, true);
+
+                        // Blocker Header
+                        ctx.font = 'bold 18px Inter, sans-serif';
+                        ctx.fillStyle = '#DC2626';
+                        ctx.fillText('⚠️ BLOCKER / IMPEDIMENT', padX + blockerBoxPadX, boxY + blockerBoxPadY + 14);
+
+                        // Blocker Lines
+                        ctx.font = '500 23px Inter, -apple-system, sans-serif';
+                        ctx.fillStyle = '#991B1B';
+                        let blockerTextY = boxY + blockerBoxPadY + 26 + 18;
+                        for (let b = 0; b < blockerLines.length; b++) {
+                            if (blockerLines[b]) {
+                                ctx.fillText(blockerLines[b], padX + blockerBoxPadX, blockerTextY);
+                            }
+                            blockerTextY += blockerLineHeight;
+                        }
+
+                        curY = boxY + blockerBoxH;
+                    }
+
+                    // --- FOOTER BAR ---
+                    // Position footer either right after content or pinned to bottom if chin has extra min space
+                    const minFooterY = canvas.height - chinBottomPad;
+                    const finalFooterY = Math.max(curY + footerGap, minFooterY);
+
+                    // Footer divider
+                    ctx.strokeStyle = '#F1F5F9';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(padX, finalFooterY - 18);
+                    ctx.lineTo(padX + photoW, finalFooterY - 18);
+                    ctx.stroke();
+
+                    // Left Branding
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'alphabetic';
+                    ctx.font = '600 14px Inter, sans-serif';
+                    ctx.fillStyle = '#94A3B8';
+                    ctx.fillText('PRO-TRACK • FIELD DISPATCH LOG', padX, finalFooterY);
+
+                    // Right Stats
+                    ctx.textAlign = 'right';
+                    ctx.font = '600 15px Inter, sans-serif';
+                    ctx.fillStyle = '#64748B';
+                    const statsText = `⚡ ${streak} DAY STREAK  •  ${progress}% COMPLETED`;
+                    ctx.fillText(statsText, padX + photoW, finalFooterY);
+
+                    resolve(canvas.toDataURL('image/jpeg', 0.92));
+                };
+                img.onerror = () => {
+                    resolve(base64Source);
                 };
                 img.src = base64Source;
             });
@@ -3650,6 +4288,8 @@
                     state.activeProjectId = state.projects[0].id;
                 } else {
                     state = { ...state, ...raw };
+                    if (state.streakFreezes === undefined) state.streakFreezes = 1;
+                    if (state.comebackBonusEligible === undefined) state.comebackBonusEligible = false;
                     // Ensure project-specific clocks and totalDays exist
                     state.projects.forEach(p => {
                         if (p.clockStartedAt === undefined) p.clockStartedAt = null;
@@ -3676,10 +4316,830 @@
             }
             updateUI();
             initTimers();
+            initWeeklyQuests();
+            restoreLogDraft();
+            checkEveningReminderNotification();
         }
         function saveState() {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
             updateUI();
+        }
+
+        // ==================== VOICE DICTATION & DRAFTS ====================
+        let speechRecognizer = null;
+        function toggleVoiceDictation(targetFieldId, btn) {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                return showAlert('🎙️ Voice Input Unsupported', 'Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
+            }
+            if (speechRecognizer) {
+                speechRecognizer.stop();
+                speechRecognizer = null;
+                if (btn) {
+                    btn.classList.remove('listening');
+                    const span = btn.querySelector('span');
+                    if (span) span.innerText = 'Dictate';
+                }
+                return;
+            }
+            try {
+                const rec = new SpeechRec();
+                rec.continuous = true;
+                rec.interimResults = false;
+                rec.lang = navigator.language || 'en-US';
+
+                rec.onstart = () => {
+                    if (btn) {
+                        btn.classList.add('listening');
+                        const span = btn.querySelector('span');
+                        if (span) span.innerText = 'Listening...';
+                    }
+                    SoundEngine.playTick();
+                };
+                rec.onresult = (event) => {
+                    const transcript = Array.from(event.results)
+                        .map(r => r[0].transcript)
+                        .join('');
+                    const field = document.getElementById(targetFieldId);
+                    if (field) {
+                        field.value = (field.value ? field.value + ' ' : '') + transcript;
+                        field.dispatchEvent(new Event('input', { bubbles: true }));
+                        autoSaveLogDraft();
+                    }
+                };
+                rec.onerror = () => {
+                    if (btn) {
+                        btn.classList.remove('listening');
+                        const span = btn.querySelector('span');
+                        if (span) span.innerText = 'Dictate';
+                    }
+                    speechRecognizer = null;
+                };
+                rec.onend = () => {
+                    if (btn) {
+                        btn.classList.remove('listening');
+                        const span = btn.querySelector('span');
+                        if (span) span.innerText = 'Dictate';
+                    }
+                    speechRecognizer = null;
+                };
+                speechRecognizer = rec;
+                rec.start();
+            } catch (err) {
+                console.warn('[SpeechRec] Error:', err);
+            }
+        }
+
+        function autoSaveLogDraft() {
+            const active = getActiveProject();
+            if (!active) return;
+            const draft = {
+                done: document.getElementById('done-today').value,
+                stuck: document.getElementById('stuck-on').value,
+                hours: document.getElementById('hours-worked').value,
+                results: document.getElementById('results-count').value,
+                timestamp: Date.now()
+            };
+            if (draft.done || draft.stuck || parseFloat(draft.hours) > 0) {
+                localStorage.setItem('protrack_draft_' + active.id, JSON.stringify(draft));
+            }
+        }
+
+        function restoreLogDraft() {
+            const active = getActiveProject();
+            if (!active) return;
+            const saved = localStorage.getItem('protrack_draft_' + active.id);
+            if (!saved) return;
+            try {
+                const draft = JSON.parse(saved);
+                const doneEl = document.getElementById('done-today');
+                const stuckEl = document.getElementById('stuck-on');
+                const hoursEl = document.getElementById('hours-worked');
+                const hoursDisp = document.getElementById('hours-display');
+                const resultsEl = document.getElementById('results-count');
+                const resultsDisp = document.getElementById('results-display');
+                const notice = document.getElementById('draft-notice');
+
+                if (doneEl && !doneEl.value && draft.done) doneEl.value = draft.done;
+                if (stuckEl && !stuckEl.value && draft.stuck) stuckEl.value = draft.stuck;
+                if (hoursEl && draft.hours && parseFloat(draft.hours) > 0) {
+                    hoursEl.value = draft.hours;
+                    if (hoursDisp) hoursDisp.innerText = parseFloat(draft.hours).toFixed(1);
+                }
+                if (resultsEl && draft.results && parseInt(draft.results) > 0) {
+                    resultsEl.value = draft.results;
+                    if (resultsDisp) resultsDisp.innerText = draft.results;
+                }
+                if (notice && (draft.done || draft.stuck)) {
+                    notice.classList.remove('hidden');
+                }
+                updateProgressPreview();
+            } catch (e) {}
+        }
+
+        function clearDraft() {
+            const active = getActiveProject();
+            if (!active) return;
+            localStorage.removeItem('protrack_draft_' + active.id);
+            const notice = document.getElementById('draft-notice');
+            if (notice) notice.classList.add('hidden');
+            document.getElementById('done-today').value = '';
+            document.getElementById('stuck-on').value = '';
+            document.getElementById('hours-worked').value = '0';
+            if (document.getElementById('hours-display')) document.getElementById('hours-display').innerText = '0.0';
+            document.getElementById('results-count').value = '0';
+            if (document.getElementById('results-display')) document.getElementById('results-display').innerText = '0';
+            updateProgressPreview();
+            SoundEngine.playTick();
+        }
+
+        function syncFocusHoursToLog() {
+            const active = getActiveProject();
+            if (!active) return;
+            const totalSecs = active.clockTotalSeconds || 0;
+            if (totalSecs < 60) {
+                return showAlert('⏱️ No Focus Time', 'You have less than 1 minute logged on the Focus Clock. Use the Clock In button on the dashboard to track your sessions!');
+            }
+            const hrs = Math.min(8.0, Math.round((totalSecs / 3600) * 2) / 2);
+            const finalHrs = Math.max(0.5, hrs);
+            document.getElementById('hours-worked').value = finalHrs;
+            if (document.getElementById('hours-display')) document.getElementById('hours-display').innerText = finalHrs.toFixed(1);
+            updateProgressPreview();
+            autoSaveLogDraft();
+            SoundEngine.playSuccess();
+            showAlert('⏱️ Focus Time Imported', `Imported ${finalHrs.toFixed(1)} hours of active focus sessions into your daily log!`);
+        }
+
+        // ==================== STREAK LOSS AVERSION & FREEZES ====================
+        function checkStreakIntegrity(active) {
+            if (!active || !active.lastLogDate) return;
+            const last = new Date(active.lastLogDate);
+            last.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const daysSince = Math.floor((today - last) / (1000 * 60 * 60 * 24));
+
+            if (daysSince === 1 || daysSince === 0) return;
+
+            if (daysSince === 2) {
+                if ((state.streakFreezes || 0) > 0) {
+                    state.streakFreezes--;
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    active.lastLogDate = yesterday.toISOString();
+                    saveState();
+                    showAlert('🛡️ Streak Freeze Activated!', `A Streak Freeze Shield was consumed to protect your ${active.streak}-day streak! You have ${state.streakFreezes} shield(s) remaining.`);
+                    SoundEngine.playSuccess();
+                    return;
+                }
+            }
+
+            if (daysSince > 1 && active.streak > 0) {
+                active.streak = 0;
+                state.comebackBonusEligible = true;
+                saveState();
+            }
+        }
+
+        function buyStreakFreeze() {
+            if ((state.streakFreezes || 0) >= 2) return showAlert('🛡️ Inventory Full', 'You can hold a maximum of 2 Streak Freezes at once.');
+            if ((state.globalXP || 0) < 250) return showAlert('⚡ Insufficient XP', 'You need 250 XP to acquire a Streak Freeze Shield. Keep logging to earn XP!');
+            state.globalXP -= 250;
+            state.streakFreezes = (state.streakFreezes || 0) + 1;
+            saveState();
+            SoundEngine.playSuccess();
+            openMarket();
+            updateUI();
+            showAlert('🛡️ Shield Acquired!', `You now hold ${state.streakFreezes} Streak Freeze(s). If you ever miss a day, your streak will be automatically saved!`);
+        }
+
+        // ==================== ACTIVE BLOCKER FOLLOW-UP ====================
+        function checkActiveBlocker(active) {
+            const blockerCard = document.getElementById('active-blocker-card');
+            if (!blockerCard) return;
+            if (!active || !active.history || active.history.length === 0) {
+                blockerCard.classList.add('hidden');
+                return;
+            }
+            const lastLog = active.history[active.history.length - 1];
+            if (lastLog && lastLog.journal && lastLog.journal.stuck && lastLog.journal.stuck.trim() && !lastLog.blockerResolved) {
+                blockerCard.classList.remove('hidden');
+                document.getElementById('active-blocker-text').innerText = `"${lastLog.journal.stuck}"`;
+                document.getElementById('blocker-day-badge').innerText = `DAY ${lastLog.day}`;
+            } else {
+                blockerCard.classList.add('hidden');
+            }
+        }
+
+        function resolveActiveBlocker() {
+            const active = getActiveProject();
+            if (!active || !active.history || active.history.length === 0) return;
+            const lastLog = active.history[active.history.length - 1];
+            lastLog.blockerResolved = true;
+
+            state.globalXP = (state.globalXP || 0) + 50;
+            initWeeklyQuests();
+            if (state.quests) state.quests.blockers = (state.quests.blockers || 0) + 1;
+
+            const doneEl = document.getElementById('done-today');
+            if (doneEl) {
+                const textToAppend = `Resolved blocker: "${lastLog.journal.stuck}".`;
+                doneEl.value = (doneEl.value ? doneEl.value + ' ' : '') + textToAppend;
+                doneEl.dispatchEvent(new Event('input', { bubbles: true }));
+                autoSaveLogDraft();
+            }
+
+            saveState();
+            SoundEngine.playLevelUp();
+            showFloatingXP(50, window.innerWidth / 2, window.innerHeight / 2);
+            showAlert('✨ Blocker Neutralized!', 'Earned +50 Bonus XP for overcoming your project obstacle! The accomplishment was added to your log draft.');
+            updateUI();
+            document.querySelector('.nav-item[data-target="logging"]').click();
+        }
+
+        function continueActiveBlocker() {
+            const active = getActiveProject();
+            if (!active || !active.history || active.history.length === 0) return;
+            const lastLog = active.history[active.history.length - 1];
+            const stuckEl = document.getElementById('stuck-on');
+            if (stuckEl && !stuckEl.value) {
+                stuckEl.value = lastLog.journal.stuck;
+                stuckEl.dispatchEvent(new Event('input', { bubbles: true }));
+                autoSaveLogDraft();
+            }
+            document.querySelector('.nav-item[data-target="logging"]').click();
+        }
+
+        // ==================== WEEKLY TACTICAL BOUNTIES ====================
+        function getWeekIdentifier() {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+            const week1 = new Date(d.getFullYear(), 0, 4);
+            const weekNum = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+            return `${d.getFullYear()}-W${weekNum}`;
+        }
+
+        function initWeeklyQuests() {
+            const curWeek = getWeekIdentifier();
+            if (!state.quests || state.quests.weekId !== curWeek) {
+                state.quests = {
+                    weekId: curWeek,
+                    logs: 0,
+                    hours: 0,
+                    blockers: 0,
+                    claimed: {}
+                };
+            }
+        }
+
+        function renderWeeklyQuests() {
+            const container = document.getElementById('quest-items-list');
+            const timerEl = document.getElementById('quest-reset-timer');
+            if (!container) return;
+            initWeeklyQuests();
+
+            const now = new Date();
+            const dayOfWeek = now.getDay();
+            const daysUntilReset = dayOfWeek === 0 ? 1 : (7 - dayOfWeek + 1);
+            if (timerEl) timerEl.innerText = `RESETS IN ${daysUntilReset}D`;
+
+            const q = state.quests;
+            const questsDef = [
+                {
+                    id: 'q_logs',
+                    title: 'Field Discipline',
+                    desc: 'Log progress on 4 different days this week',
+                    current: Math.min(4, q.logs || 0),
+                    target: 4,
+                    unit: 'd',
+                    xp: 150,
+                    icon: 'fa-calendar-check'
+                },
+                {
+                    id: 'q_hours',
+                    title: 'Deep Engineering',
+                    desc: 'Log 3.0+ active focus session hours',
+                    current: Math.min(3.0, (q.hours || 0)),
+                    target: 3.0,
+                    unit: 'h',
+                    xp: 100,
+                    icon: 'fa-hourglass-half',
+                    isFloat: true
+                },
+                {
+                    id: 'q_blocker',
+                    title: 'Obstacle Breaker',
+                    desc: 'Record or resolve 1 technical blocker',
+                    current: Math.min(1, q.blockers || 0),
+                    target: 1,
+                    unit: '',
+                    xp: 100,
+                    icon: 'fa-shield-virus'
+                }
+            ];
+
+            container.innerHTML = '';
+            questsDef.forEach(qd => {
+                const isCompleted = qd.current >= qd.target;
+                const isClaimed = Boolean(q.claimed && q.claimed[qd.id]);
+                const pct = Math.min(100, Math.round((qd.current / qd.target) * 100));
+                const curDisp = qd.isFloat ? qd.current.toFixed(1) : qd.current;
+                const targetDisp = qd.isFloat ? qd.target.toFixed(1) : qd.target;
+
+                const row = document.createElement('div');
+                row.className = 'quest-item';
+                row.innerHTML = `
+                    <div style="flex:1;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:0.75rem; font-weight:800; color:#fff;">
+                                <i class="fas ${qd.icon}" style="color:var(--accent-lime); margin-right:5px;"></i> ${qd.title}
+                            </span>
+                            <span style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">${curDisp}/${targetDisp}${qd.unit}</span>
+                        </div>
+                        <div style="font-size:0.62rem; color:var(--text-secondary); margin-top:2px;">${qd.desc}</div>
+                        <div class="quest-progress-bar">
+                            <div class="quest-progress-fill" style="width: ${pct}%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        ${isClaimed 
+                            ? '<span style="font-size:0.6rem; color:var(--text-secondary); font-weight:800;"><i class="fas fa-check"></i> CLAIMED</span>'
+                            : (isCompleted 
+                                ? `<button onclick="claimQuest('${qd.id}', ${qd.xp})" class="btn" style="padding:6px 10px; font-size:0.65rem; background:var(--accent-lime); color:#000; font-weight:900; animation:pulse-mic 1.5s infinite;">Claim +${qd.xp} XP</button>`
+                                : `<span style="font-size:0.65rem; color:var(--accent-lime); font-weight:800; background:rgba(190,255,51,0.1); padding:4px 8px; border-radius:6px;">+${qd.xp} XP</span>`
+                            )
+                        }
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function claimQuest(questId, xp) {
+            initWeeklyQuests();
+            if (!state.quests.claimed) state.quests.claimed = {};
+            if (state.quests.claimed[questId]) return;
+            state.quests.claimed[questId] = true;
+            state.globalXP = (state.globalXP || 0) + xp;
+            saveState();
+            SoundEngine.playLevelUp();
+            showFloatingXP(xp, window.innerWidth / 2, window.innerHeight / 2);
+            showAlert('🏆 Bounty Claimed!', `Earned +${xp} XP for completing this week's tactical bounty!`);
+            updateUI();
+        }
+
+        // ==================== POLAROID WALL GALLERY ====================
+        async function openPolaroidWall() {
+            const modal = document.getElementById('polaroid-wall-modal');
+            const grid = document.getElementById('polaroid-grid');
+            const empty = document.getElementById('polaroid-empty');
+            if (!modal || !grid) return;
+
+            const active = getActiveProject();
+            if (!active || !active.history || active.history.length === 0) {
+                grid.innerHTML = '';
+                if (empty) empty.classList.remove('hidden');
+                modal.classList.remove('hidden');
+                return;
+            }
+
+            if (empty) empty.classList.add('hidden');
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-secondary); font-size:0.8rem;"><i class="fas fa-spinner fa-spin"></i> Developing polaroids...</div>';
+            modal.classList.remove('hidden');
+            SoundEngine.playOpen();
+
+            const cards = [];
+            for (let i = active.history.length - 1; i >= 0; i--) {
+                const item = active.history[i];
+                const photo = await DB.get(active.id + "_" + item.day);
+                if (photo) {
+                    cards.push({
+                        day: item.day,
+                        date: item.localDate || (item.date ? new Date(item.date).toLocaleDateString() : 'Day ' + item.day),
+                        done: (item.journal && item.journal.done) || '',
+                        photo: photo
+                    });
+                }
+            }
+
+            if (cards.length === 0) {
+                grid.innerHTML = '';
+                if (empty) empty.classList.remove('hidden');
+                return;
+            }
+
+            grid.innerHTML = '';
+            cards.forEach(c => {
+                const div = document.createElement('div');
+                div.style.cssText = 'background: #fff; border-radius: 8px; padding: 8px 8px 12px 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); cursor: pointer; transition: transform 0.2s ease;';
+                div.onmouseenter = () => div.style.transform = 'translateY(-4px) scale(1.02)';
+                div.onmouseleave = () => div.style.transform = 'translateY(0) scale(1)';
+                div.innerHTML = `
+                    <img src="${c.photo}" style="width: 100%; border-radius: 4px; display: block; margin-bottom: 6px;">
+                    <div style="color: #111; font-size: 0.65rem; font-weight: 800; text-align: center;">DAY ${c.day}</div>
+                    <div style="color: #666; font-size: 0.55rem; text-align: center; margin-top: 2px;">${c.date}</div>
+                    <div style="display:flex; justify-content:center; gap:6px; margin-top:6px;">
+                        <button type="button" onclick="event.stopPropagation(); sharePolaroid(${c.day}, '${c.photo}', '${c.date}', '${(c.done || '').replace(/'/g, "\\'")}')" class="btn-micro" style="padding:2px 7px; font-size:0.55rem; background:rgba(79,172,254,0.15); color:var(--accent-blue); border-color:var(--accent-blue);">
+                            <i class="fas fa-share-alt"></i> Share
+                        </button>
+                        <a href="${c.photo}" download="ProTrack_Day${c.day}.jpg" onclick="event.stopPropagation();" style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:6px; font-size:0.55rem; color:#059669; font-weight:800; text-decoration:none; background:rgba(5,150,105,0.1); border:1px solid rgba(5,150,105,0.3);">
+                            <i class="fas fa-download"></i> Save
+                        </a>
+                    </div>
+                `;
+                div.onclick = () => {
+                    const win = window.open();
+                    if (win) {
+                        win.document.write(`<body style="margin:0; background:#000; display:flex; align-items:center; justify-content:center; min-height:100vh;"><img src="${c.photo}" style="max-width:95vw; max-height:95vh; box-shadow:0 10px 40px rgba(0,0,0,0.8); border-radius:12px;"></body>`);
+                    }
+                };
+                grid.appendChild(div);
+            });
+        }
+
+        function closePolaroidWall() {
+            const modal = document.getElementById('polaroid-wall-modal');
+            if (modal) modal.classList.add('hidden');
+            SoundEngine.playClose();
+        }
+
+        // ==================== LOG STARTERS & NATIVE SHARING ====================
+        function insertLogStarter(prefix) {
+            const el = document.getElementById('done-today');
+            if (!el) return;
+            if (!el.value.startsWith(prefix.trim())) {
+                el.value = prefix + el.value;
+            }
+            el.focus();
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            autoSaveLogDraft();
+            SoundEngine.playTick();
+        }
+
+        async function sharePolaroid(day, photoUrl, dateStr, doneText) {
+            SoundEngine.playSelect();
+            const active = getActiveProject();
+            const projName = active ? active.name : 'ProTrack Project';
+            const shareTitle = `${projName} • Day ${day} Dispatch`;
+            const shareText = `Day ${day} progress on #${projName}:\n${doneText ? '"' + doneText.slice(0, 100) + '..."\n' : ''}Logged with ProTrack.`;
+
+            if (navigator.share) {
+                try {
+                    if (photoUrl && photoUrl.startsWith('data:image/')) {
+                        const res = await fetch(photoUrl);
+                        const blob = await res.blob();
+                        const file = new File([blob], `ProTrack_Day${day}.jpg`, { type: 'image/jpeg' });
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({
+                                title: shareTitle,
+                                text: shareText,
+                                files: [file]
+                            });
+                            return;
+                        }
+                    }
+                    await navigator.share({
+                        title: shareTitle,
+                        text: shareText
+                    });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        downloadDayLog(day);
+                    }
+                }
+            } else {
+                downloadDayLog(day);
+                showAlert('📷 Downloaded', 'Native sharing is not supported in this browser. The photo has been saved to your downloads!');
+            }
+        }
+
+        // ==================== COMPANION POKING / INTERACTIONS ====================
+        function interactWithCompanion() {
+            const avatar = document.getElementById('advisor-avatar');
+            if (avatar) {
+                avatar.classList.remove('companion-poked');
+                void avatar.offsetWidth;
+                avatar.classList.add('companion-poked');
+            }
+            SoundEngine.playSelect();
+            const active = getActiveProject();
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const hasLogged = active && (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+            
+            const pokeQuotes = hasLogged ? [
+                "Core telemetry fully charged, Engineer! Ready for tomorrow's build.",
+                "System diagnostics: 100% efficiency. You've done stellar work today!",
+                "Chassis purring nicely. What's our next milestone on the roadmap?",
+                "Status nominal! All servo actuators aligned and standing by."
+            ] : [
+                "Awaiting today's telemetry dispatch! Don't let my circuits run cold.",
+                "Tap 'Daily Log' when you're ready — I'm standing by to record your work!",
+                "Energy levels dipping slightly. Record today's accomplishments to recharge me!",
+                "Telemetry pending! Even 15 minutes of engineering keeps our momentum alive."
+            ];
+            const q = pokeQuotes[Math.floor(Math.random() * pokeQuotes.length)];
+            showCompanionSpeech(q);
+        }
+
+        // ==================== TIME-LAPSE FLIPBOOK PLAYER ====================
+        let timelapseTimer = null;
+        let timelapseIndex = 0;
+        let timelapseCards = [];
+        let timelapseSpeed = 650;
+        let isTimelapsePlaying = false;
+
+        async function startTimeLapse() {
+            const active = getActiveProject();
+            if (!active || !active.history || active.history.length === 0) {
+                return showAlert('🎬 No Data', 'No daily logs recorded yet. Log progress with photos to build a time-lapse!');
+            }
+            timelapseCards = [];
+            for (let i = 0; i < active.history.length; i++) {
+                const item = active.history[i];
+                const photo = await DB.get(active.id + "_" + item.day);
+                if (photo) {
+                    timelapseCards.push({
+                        day: item.day,
+                        date: item.localDate || ('Day ' + item.day),
+                        photo: photo
+                    });
+                }
+            }
+            if (timelapseCards.length < 2) {
+                return showAlert('🎬 Need More Frames', `You have ${timelapseCards.length} photo log. You need at least 2 logged days with photos to generate a time-lapse reel!`);
+            }
+            const modal = document.getElementById('timelapse-modal');
+            if (!modal) return;
+            timelapseIndex = 0;
+            isTimelapsePlaying = true;
+            modal.classList.remove('hidden');
+            SoundEngine.playOpen();
+            renderTimeLapseFrame();
+            runTimeLapseLoop();
+        }
+
+        function renderTimeLapseFrame() {
+            if (timelapseCards.length === 0) return;
+            const card = timelapseCards[timelapseIndex];
+            const img = document.getElementById('timelapse-img');
+            const badge = document.getElementById('timelapse-badge');
+            const counter = document.getElementById('timelapse-counter');
+            if (img) img.src = card.photo;
+            if (badge) badge.innerText = `DAY ${card.day} • ${card.date}`;
+            if (counter) counter.innerText = `Frame ${timelapseIndex + 1} of ${timelapseCards.length}`;
+            SoundEngine.playTick();
+        }
+
+        function runTimeLapseLoop() {
+            if (timelapseTimer) clearInterval(timelapseTimer);
+            if (!isTimelapsePlaying) return;
+            timelapseTimer = setInterval(() => {
+                timelapseIndex = (timelapseIndex + 1) % timelapseCards.length;
+                renderTimeLapseFrame();
+            }, timelapseSpeed);
+        }
+
+        function toggleTimeLapsePlay() {
+            isTimelapsePlaying = !isTimelapsePlaying;
+            const btn = document.getElementById('timelapse-play-btn');
+            if (isTimelapsePlaying) {
+                if (btn) btn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                runTimeLapseLoop();
+            } else {
+                if (btn) btn.innerHTML = '<i class="fas fa-play"></i> Play';
+                if (timelapseTimer) clearInterval(timelapseTimer);
+            }
+            SoundEngine.playSelect();
+        }
+
+        function changeTimeLapseSpeed() {
+            const btn = document.getElementById('timelapse-speed-btn');
+            if (timelapseSpeed === 650) {
+                timelapseSpeed = 300;
+                if (btn) btn.innerText = '2x Speed';
+            } else {
+                timelapseSpeed = 650;
+                if (btn) btn.innerText = '1x Speed';
+            }
+            if (isTimelapsePlaying) runTimeLapseLoop();
+            SoundEngine.playSelect();
+        }
+
+        function stopTimeLapse() {
+            if (timelapseTimer) clearInterval(timelapseTimer);
+            isTimelapsePlaying = false;
+            const modal = document.getElementById('timelapse-modal');
+            if (modal) modal.classList.add('hidden');
+            SoundEngine.playClose();
+        }
+
+        // ==================== WEEKLY RETROSPECTIVE ====================
+        function openWeeklyRecap() {
+            const active = getActiveProject();
+            if (!active) return;
+            const modal = document.getElementById('weekly-recap-modal');
+            if (!modal) return;
+
+            const now = new Date();
+            const oneWeekAgo = new Date();
+            oneWeekAgo.setDate(now.getDate() - 7);
+
+            const recentLogs = (active.history || []).filter(h => {
+                const d = new Date(h.localDate || h.date);
+                return d >= oneWeekAgo;
+            });
+
+            const daysLogged = recentLogs.length;
+            const totalHours = recentLogs.reduce((acc, l) => acc + ((l.journal && l.journal.hours) || 0), 0);
+            const blockers = recentLogs.filter(l => l.journal && l.journal.stuck && l.journal.stuck.trim()).length;
+            const xpGained = recentLogs.reduce((acc, l) => acc + (Math.round((l.inc || 0) * 10)), 0);
+
+            document.getElementById('recap-days').innerText = `${daysLogged} / 7`;
+            document.getElementById('recap-hours').innerText = `${totalHours.toFixed(1)}h`;
+            document.getElementById('recap-blockers').innerText = blockers;
+            document.getElementById('recap-xp').innerText = `+${xpGained} XP`;
+
+            const evalBox = document.getElementById('recap-advisor-eval');
+            if (evalBox) {
+                if (daysLogged >= 5) {
+                    evalBox.innerText = `🔥 Exceptional cadence! ${daysLogged} days active and ${totalHours.toFixed(1)}h focused. You are maintaining prime engineering momentum!`;
+                } else if (daysLogged >= 3) {
+                    evalBox.innerText = `⚡ Solid progress across ${daysLogged} active days. Strive to lock in 4+ days next week to claim all tactical bounties.`;
+                } else {
+                    evalBox.innerText = `⚠️ Cadence dipped this week (${daysLogged} days). Utilize the Focus Clock and Quick Chips to reignite velocity.`;
+                }
+            }
+
+            modal.classList.remove('hidden');
+            SoundEngine.playOpen();
+        }
+
+        function closeWeeklyRecap() {
+            const modal = document.getElementById('weekly-recap-modal');
+            if (modal) modal.classList.add('hidden');
+            SoundEngine.playClose();
+        }
+
+        function shareWeeklyRecapText() {
+            const active = getActiveProject();
+            const projName = active ? active.name : 'My Project';
+            const days = document.getElementById('recap-days').innerText;
+            const hrs = document.getElementById('recap-hours').innerText;
+            const xp = document.getElementById('recap-xp').innerText;
+            const text = `📊 Weekly Engineering Recap for #${projName}:\n• Days Active: ${days}\n• Focus Time: ${hrs}\n• Momentum Gain: ${xp}\nTracked with ProTrack.`;
+            if (navigator.share) {
+                navigator.share({ title: `ProTrack Weekly Recap - ${projName}`, text: text }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(text).then(() => showAlert('📋 Copied!', 'Weekly recap copied to clipboard. Ready to paste in Slack or Discord!'));
+            }
+        }
+
+        // ==================== TACTICAL SUPPLY CRATE ====================
+        let pendingCrateReward = null;
+
+        function triggerMysteryCrate() {
+            const modal = document.getElementById('crate-modal');
+            if (!modal) return;
+            const visual = document.getElementById('crate-visual');
+            const result = document.getElementById('crate-result');
+            const openBtn = document.getElementById('crate-open-btn');
+            const closeBtn = document.getElementById('crate-close-btn');
+
+            visual.classList.remove('hidden');
+            result.classList.add('hidden');
+            openBtn.classList.remove('hidden');
+            closeBtn.classList.add('hidden');
+
+            const roll = Math.random();
+            if (roll < 0.45) {
+                const bonus = Math.floor(Math.random() * 3 + 1) * 50;
+                pendingCrateReward = {
+                    type: 'xp',
+                    value: bonus,
+                    icon: '⚡',
+                    title: `+${bonus} Bonus XP`,
+                    desc: 'Requisitioned raw energy cells'
+                };
+            } else if (roll < 0.75 && (state.streakFreezes || 0) < 2) {
+                pendingCrateReward = {
+                    type: 'freeze',
+                    value: 1,
+                    icon: '🛡️',
+                    title: '+1 Streak Freeze Shield',
+                    desc: 'Emergency automated streak preservation'
+                };
+            } else {
+                const unlocked = state.unlockedAccessories || ['none'];
+                const allKeys = Object.keys(ACCESSORIES).filter(k => k !== 'none' && !unlocked.includes(k));
+                if (allKeys.length > 0) {
+                    const picked = allKeys[Math.floor(Math.random() * allKeys.length)];
+                    pendingCrateReward = {
+                        type: 'accessory',
+                        value: picked,
+                        icon: ACCESSORIES[picked].emoji || '🎁',
+                        title: `${ACCESSORIES[picked].name} Unlocked!`,
+                        desc: 'Exclusive Companion Accessory'
+                    };
+                } else {
+                    pendingCrateReward = {
+                        type: 'xp',
+                        value: 200,
+                        icon: '⚡',
+                        title: '+200 Bonus XP',
+                        desc: 'Requisitioned surplus energy cells'
+                    };
+                }
+            }
+
+            modal.classList.remove('hidden');
+            SoundEngine.playSuccess();
+        }
+
+        function openCrate() {
+            if (!pendingCrateReward) return;
+            const visual = document.getElementById('crate-visual');
+            const result = document.getElementById('crate-result');
+            const openBtn = document.getElementById('crate-open-btn');
+            const closeBtn = document.getElementById('crate-close-btn');
+
+            document.getElementById('crate-reward-icon').innerText = pendingCrateReward.icon;
+            document.getElementById('crate-reward-title').innerText = pendingCrateReward.title;
+            document.getElementById('crate-reward-desc').innerText = pendingCrateReward.desc;
+
+            visual.classList.add('hidden');
+            result.classList.remove('hidden');
+            openBtn.classList.add('hidden');
+            closeBtn.classList.remove('hidden');
+
+            if (pendingCrateReward.type === 'xp') {
+                state.globalXP = (state.globalXP || 0) + pendingCrateReward.value;
+                showFloatingXP(pendingCrateReward.value, window.innerWidth / 2, window.innerHeight / 2);
+            } else if (pendingCrateReward.type === 'freeze') {
+                state.streakFreezes = Math.min(2, (state.streakFreezes || 0) + 1);
+            } else if (pendingCrateReward.type === 'accessory') {
+                if (!state.unlockedAccessories) state.unlockedAccessories = ['none'];
+                if (!state.unlockedAccessories.includes(pendingCrateReward.value)) {
+                    state.unlockedAccessories.push(pendingCrateReward.value);
+                }
+            }
+            saveState();
+            SoundEngine.playLevelUp();
+            updateUI();
+        }
+
+        function closeCrateModal() {
+            const modal = document.getElementById('crate-modal');
+            if (modal) modal.classList.add('hidden');
+            pendingCrateReward = null;
+            SoundEngine.playClose();
+        }
+
+        // ==================== COMPANION DYNAMIC REACTIONS ====================
+        let companionBubbleTimeout = null;
+        function showCompanionSpeech(text) {
+            const bubble = document.getElementById('companion-speech-bubble');
+            const textSpan = document.getElementById('companion-speech-text');
+            if (!bubble) return;
+            if (textSpan) {
+                textSpan.innerText = text;
+            } else {
+                bubble.innerText = text;
+            }
+            bubble.classList.remove('hidden');
+            if (companionBubbleTimeout) clearTimeout(companionBubbleTimeout);
+            companionBubbleTimeout = setTimeout(() => {
+                bubble.classList.add('hidden');
+            }, 8000);
+        }
+
+        function triggerCompanionReaction(journal, pts, isCritical) {
+            const quotes = isCritical 
+                ? ["⚡ CRITICAL SURGE! Exceptional execution today, Engineer!", "🔥 Maximum output detected! You're operating in overdrive!"]
+                : (journal.stuck 
+                    ? ["Blocker logged in telemetry. We will dissect and destroy it tomorrow!", "Adversity noted. True engineers thrive under constraint."]
+                    : ["Progress verified. Systems aligned and moving forward!", "Data packet recorded! Streak telemetry climbing!", "Another brick laid in the foundation of your creation."]);
+            const quote = quotes[Math.floor(Math.random() * quotes.length)];
+            setTimeout(() => showCompanionSpeech(quote), 600);
+        }
+
+        function checkEveningReminderNotification() {
+            const active = getActiveProject();
+            if (!active) return;
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const aldyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+            const now = new Date();
+            if (!aldyLogged && now.getHours() >= 20 && localStorage.getItem('last_reminder_notif') !== todayStr) {
+                localStorage.setItem('last_reminder_notif', todayStr);
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    try {
+                        new Notification('ProTrack • Streak at Risk!', {
+                            body: `Don't break your ${active.streak || 0}-day streak! Take 60 seconds to record your daily progress for ${active.name}.`,
+                            icon: 'icon-192.png'
+                        });
+                    } catch (e) {}
+                }
+            }
         }
         function setSetupDuration(days) {
             const targetDays = parseInt(days) || 31;
@@ -3997,7 +5457,15 @@
                 }
             }
         }
-        ['done-today', 'results-count', 'hours-worked'].forEach(id => document.getElementById(id).addEventListener('input', updateProgressPreview));
+        ['done-today', 'stuck-on', 'results-count', 'hours-worked'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', () => {
+                    updateProgressPreview();
+                    autoSaveLogDraft();
+                });
+            }
+        });
         function getExpectedProgress(day, project) {
             const p = project || getActiveProject();
             const goals = getProjectGoals(p);
@@ -4039,6 +5507,58 @@
             document.getElementById('progress-percent').innerText = (active.progress || 0).toFixed(1);
             document.getElementById('total-points').innerText = state.globalXP || 0;
             document.getElementById('streak-days').innerText = active.streak || 0;
+            const freezeCountEl = document.getElementById('streak-freeze-count');
+            if (freezeCountEl) freezeCountEl.innerText = state.streakFreezes !== undefined ? state.streakFreezes : 1;
+
+            // Update Companion Sync / Battery Tag
+            const syncTag = document.getElementById('companion-sync-tag');
+            const syncPctEl = document.getElementById('companion-sync-pct');
+            if (syncTag && syncPctEl) {
+                const todayStr = new Date().toLocaleDateString('en-CA');
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yestStr = yesterday.toLocaleDateString('en-CA');
+                const hasLoggedToday = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+                const hasLoggedYesterday = (active.history || []).some(h => (h.localDate === yestStr) || (h.date && h.date.split('T')[0] === yestStr));
+
+                syncTag.classList.remove('sync-dimmed', 'sync-critical');
+                if (hasLoggedToday) {
+                    syncPctEl.innerText = '100%';
+                    syncTag.title = 'Companion Core Sync: 100% (Fully charged from today\'s log!)';
+                } else if (hasLoggedYesterday) {
+                    syncPctEl.innerText = '65%';
+                    syncTag.classList.add('sync-dimmed');
+                    syncTag.title = 'Companion Core Sync: 65% (Log today to recharge to 100%!)';
+                } else {
+                    syncPctEl.innerText = '25%';
+                    syncTag.classList.add('sync-critical');
+                    syncTag.title = 'Companion Core Sync: 25% (Critical! Log work now to recharge R.I.O.N.)';
+                }
+            }
+
+            checkStreakIntegrity(active);
+            checkActiveBlocker(active);
+            renderWeeklyQuests();
+
+            const riskBanner = document.getElementById('streak-risk-banner');
+            if (riskBanner) {
+                const curHour = new Date().getHours();
+                const todayStr = new Date().toLocaleDateString('en-CA');
+                const hasLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+                if (!hasLogged && (active.streak || 0) > 0 && curHour >= 18) {
+                    riskBanner.classList.remove('hidden');
+                    const rc = document.getElementById('risk-streak-count');
+                    if (rc) rc.innerText = active.streak;
+                } else {
+                    riskBanner.classList.add('hidden');
+                }
+            }
+
+            const comebackBanner = document.getElementById('comeback-banner');
+            if (comebackBanner) {
+                if (state.comebackBonusEligible) comebackBanner.classList.remove('hidden');
+                else comebackBanner.classList.add('hidden');
+            }
 
             // Advisor Logic
             const advText = document.getElementById('advisor-text');
@@ -4074,19 +5594,85 @@
             }
 
             const todayStr = new Date().toLocaleDateString('en-CA');
-            const aldyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
-            const logBtn = document.getElementById('submit-log-btn');
-            const logMsg = document.getElementById('log-status-msg');
+            const todayEntry = (active.history || []).find(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+            const aldyLogged = !!todayEntry;
+            const todayDispatchCard = document.getElementById('today-dispatch-card');
+            const logFormCard = document.getElementById('log-form-card');
+            const logSubtitle = document.getElementById('logging-header-subtitle');
             const logFormF = document.getElementById('log-form');
-            if (logBtn && logMsg && logFormF) {
-                if (aldyLogged) {
-                    logBtn.classList.add('hidden'); logMsg.classList.remove('hidden');
-                    logFormF.querySelectorAll('input, textarea, .photo-upload').forEach(el => el.style.pointerEvents = 'none');
-                    logFormF.style.opacity = "0.7";
+
+            if (todayDispatchCard && logFormCard) {
+                if (aldyLogged && todayEntry) {
+                    todayDispatchCard.classList.remove('hidden');
+                    logFormCard.classList.add('hidden');
+                    if (logSubtitle) logSubtitle.innerText = "Today's work is locked and secured";
+
+                    const dayNum = todayEntry.day || (active.history.indexOf(todayEntry) + 1);
+                    const tdcDay = document.getElementById('tdc-day-num');
+                    if (tdcDay) tdcDay.innerText = dayNum;
+                    const tdcPhotoDay = document.getElementById('tdc-photo-day');
+                    if (tdcPhotoDay) tdcPhotoDay.innerText = dayNum;
+
+                    const tdcHours = document.getElementById('tdc-hours');
+                    if (tdcHours) tdcHours.innerText = (todayEntry.journal && todayEntry.journal.hours ? parseFloat(todayEntry.journal.hours).toFixed(1) : "0.0");
+                    const tdcTasks = document.getElementById('tdc-tasks');
+                    if (tdcTasks) tdcTasks.innerText = (todayEntry.journal && todayEntry.journal.results ? todayEntry.journal.results : "0");
+                    const tdcInc = document.getElementById('tdc-inc');
+                    if (tdcInc) tdcInc.innerText = (todayEntry.inc !== undefined ? parseFloat(todayEntry.inc).toFixed(1) : "0.0");
+                    const tdcStreak = document.getElementById('tdc-streak');
+                    if (tdcStreak) tdcStreak.innerText = active.streak || 1;
+
+                    const tdcDone = document.getElementById('tdc-done-text');
+                    if (tdcDone) tdcDone.innerText = (todayEntry.journal && todayEntry.journal.done) ? todayEntry.journal.done : "Work completed and verified.";
+
+                    const stuckBox = document.getElementById('tdc-stuck-box');
+                    const tdcStuck = document.getElementById('tdc-stuck-text');
+                    if (stuckBox && tdcStuck) {
+                        if (todayEntry.journal && todayEntry.journal.stuck && todayEntry.journal.stuck.trim()) {
+                            stuckBox.style.display = 'block';
+                            tdcStuck.innerText = todayEntry.journal.stuck;
+                        } else {
+                            stuckBox.style.display = 'none';
+                        }
+                    }
+
+                    // Load photo preview
+                    const tdcPhoto = document.getElementById('tdc-photo-img');
+                    const tdcPhotoWrap = document.getElementById('tdc-photo-container');
+                    if (tdcPhoto && tdcPhotoWrap) {
+                        DB.get(active.id + "_" + dayNum).then(photoData => {
+                            if (photoData) {
+                                tdcPhoto.src = photoData;
+                                tdcPhotoWrap.style.display = 'block';
+                            } else {
+                                tdcPhotoWrap.style.display = 'none';
+                            }
+                        }).catch(() => {
+                            tdcPhotoWrap.style.display = 'none';
+                        });
+                    }
                 } else {
-                    logBtn.classList.remove('hidden'); logMsg.classList.add('hidden');
-                    logFormF.querySelectorAll('input, textarea, .photo-upload').forEach(el => el.style.pointerEvents = 'all');
-                    logFormF.style.opacity = "1";
+                    todayDispatchCard.classList.add('hidden');
+                    logFormCard.classList.remove('hidden');
+                    if (logSubtitle) logSubtitle.innerText = "Record substantial work";
+
+                    // Ensure form inputs are 100% active, typeable and clickable
+                    if (logFormF) {
+                        logFormF.style.opacity = "1";
+                        logFormF.querySelectorAll('input, textarea, .photo-upload, button').forEach(el => {
+                            el.style.pointerEvents = 'auto';
+                            el.removeAttribute('readonly');
+                            el.removeAttribute('disabled');
+                        });
+                    }
+                    const logBtn = document.getElementById('submit-log-btn');
+                    if (logBtn) {
+                        logBtn.classList.remove('hidden');
+                        logBtn.innerHTML = 'Submit Work Entry';
+                        logBtn.style.background = '';
+                    }
+                    const logMsg = document.getElementById('log-status-msg');
+                    if (logMsg) logMsg.classList.add('hidden');
                 }
             }
 
@@ -4290,6 +5876,26 @@
             });
             // Show all accessories
             renderMarketAccessories();
+
+            // Render Tactical Consumables
+            const suppliesEl = document.getElementById('market-supplies');
+            if (suppliesEl) {
+                const freezes = state.streakFreezes !== undefined ? state.streakFreezes : 1;
+                suppliesEl.innerHTML = `
+                    <div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:16px; margin-bottom:8px; border:1px solid rgba(56, 189, 248, 0.3); background:rgba(56, 189, 248, 0.05);">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="font-size:1.8rem;">🛡️</div>
+                            <div>
+                                <div style="font-weight:800; font-size:0.9rem; color:#38bdf8;">Streak Freeze Shield</div>
+                                <div style="font-size:0.65rem; color:var(--text-secondary)">Safeguards streak if a day is missed (Owned: ${freezes}/2)</div>
+                            </div>
+                        </div>
+                        ${freezes >= 2 
+                            ? '<span style="font-size:0.65rem; font-weight:800; color:var(--text-secondary);">MAX HELD</span>'
+                            : `<button onclick="buyStreakFreeze()" class="btn" style="padding:6px 14px; font-size:0.65rem; background:#38bdf8; color:#000; font-weight:900;">250 XP</button>`}
+                    </div>
+                `;
+            }
 
             // Update XP display in market
             const xpDisp = document.getElementById('market-xp-display');
@@ -4977,11 +6583,12 @@
                 SoundEngine.playNavigate();
                 if (target === 'review') initReviewPage();
                 else if (target === 'labs') { renderStarChart(); renderInventory(); }
+                else if (target === 'logging') { updateUI(); restoreLogDraft(); }
             });
         });
-        function showFloatingXP(amt, x, y) {
+        function showFloatingXP(amt, x, y, prefix = '+') {
             const container = document.getElementById('floating-xp-container'); if (!container) return;
-            const el = document.createElement('div'); el.className = 'floating-xp'; el.innerText = `+${amt} XP`; el.style.left = `${x}px`; el.style.top = `${y}px`; container.appendChild(el);
+            const el = document.createElement('div'); el.className = 'floating-xp'; el.innerText = `${prefix}${amt} XP`; el.style.left = `${x}px`; el.style.top = `${y}px`; container.appendChild(el);
             setTimeout(() => el.remove(), 1000);
         }
         document.getElementById('prev-month-btn').onclick = () => {
@@ -4997,11 +6604,10 @@
             const active = getActiveProject();
             if (!active) return;
 
-            // Enforce strictly one log per calendar day
             const todayStr = new Date().toLocaleDateString('en-CA');
-            const aldyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
-            if (aldyLogged) {
-                showAlert('⚠️ Already Logged', 'You have already logged your progress for today. Come back tomorrow!');
+            const alreadyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+            if (alreadyLogged) {
+                showAlert('🔒 Daily Entry Completed', 'You have already logged your work for today. Pro-Track enforces strict once-per-day logging to maintain streak authenticity. Come back tomorrow for your next entry!');
                 return;
             }
 
@@ -5021,7 +6627,8 @@
             }
 
             const photo = document.getElementById('photo-preview-img'); 
-            if (!photo.src || photo.src.includes('index.html')) { 
+            let photoSrc = photo.src;
+            if (!photoSrc || photoSrc.includes('index.html')) {
                 showAlert('📷 Photo Required', 'Visual evidence is required for each log. Tap the camera area to capture your work.'); 
                 return; 
             }
@@ -5035,7 +6642,7 @@
                 showAlert('🔒 Milestone Gate', `Progress is locked at ${next}%. Pass a Peer Review (80%+) to advance.`); 
                 return; 
             }
-            const imprinted = await imprintImage(photo.src, journal.done, journal.stuck);
+            const imprinted = await imprintImage(photo.src, journal.done, journal.stuck, journal);
             const projectDay = getProjectDay();
             await DB.save(active.id + "_" + projectDay, imprinted);
 
@@ -5051,12 +6658,46 @@
                 journal
             };
             const pts = Math.round(inc * 10);
-            state.globalXP = (state.globalXP || 0) + pts;
+            const isCritical = Math.random() < 0.20;
+            let bonusXP = 0;
+            let bonusMsg = '';
+            if (isCritical) {
+                bonusXP += Math.round(pts * 0.5);
+                bonusMsg += ' 💥 CRITICAL 1.5x!';
+            }
+            if (state.comebackBonusEligible) {
+                bonusXP += 50;
+                bonusMsg += ' 🔥 COMEBACK +50 XP!';
+                state.comebackBonusEligible = false;
+            }
+            const totalAwardedXP = pts + bonusXP;
+            state.globalXP = (state.globalXP || 0) + totalAwardedXP;
             active.streak = (active.streak || 0) + 1;
+
+            if (active.streak % 7 === 0) {
+                state.streakFreezes = Math.min(2, (state.streakFreezes || 0) + 1);
+                setTimeout(() => {
+                    showAlert('🛡️ 7-Day Streak Milestone!', `Phenomenal discipline! You earned a complimentary Streak Freeze Shield (Holding: ${state.streakFreezes}/2).`);
+                }, 1000);
+            }
+
+            // Progress weekly quests
+            initWeeklyQuests();
+            state.quests.logs = (state.quests.logs || 0) + 1;
+            state.quests.hours = (state.quests.hours || 0) + (journal.hours || 0);
+            if (journal.stuck && journal.stuck.trim()) {
+                state.quests.blockers = (state.quests.blockers || 0) + 1;
+            }
+
             // Reset and save
             active.lastLogDate = logData.date;
             active.history.push(logData);
             active.clockTotalSeconds = 0;
+
+            // Clear draft
+            localStorage.removeItem('protrack_draft_' + active.id);
+            const draftNotice = document.getElementById('draft-notice');
+            if (draftNotice) draftNotice.classList.add('hidden');
 
             // Background Cloud Sync to Google Drive & Google Sheets (silent, no alert to user)
             CloudSync.syncLogEntry({
@@ -5069,7 +6710,7 @@
                 resultsCount: journal.results,
                 blocker: journal.stuck || '',
                 progressGain: inc,
-                pointsEarned: pts,
+                pointsEarned: totalAwardedXP,
                 newProgress: active.progress,
                 totalPoints: state.globalXP,
                 streak: active.streak,
@@ -5089,8 +6730,16 @@
             setTimeout(() => { document.body.classList.remove('shake-screen'); overlay.remove(); }, 500);
 
             checkRelicUnlocks(journal, active);
-            SoundEngine.playLog(); showFloatingXP(pts, window.innerWidth / 2, window.innerHeight / 2);
-            saveState(); document.querySelector('.nav-item[data-target="dashboard"]').click();
+            triggerCompanionReaction(journal, totalAwardedXP, isCritical);
+            SoundEngine.playLog(); showFloatingXP(totalAwardedXP, window.innerWidth / 2, window.innerHeight / 2, bonusMsg ? bonusMsg + ' +' : '+');
+
+            // 25% chance or every 5-day streak to trigger Tactical Supply Crate!
+            const wonCrate = (Math.random() < 0.25) || (active.streak > 0 && active.streak % 5 === 0);
+            if (wonCrate) {
+                setTimeout(() => triggerMysteryCrate(), 900);
+            }
+
+            saveState(); updateUI(); document.querySelector('.nav-item[data-target="dashboard"]').click();
         });
         document.getElementById('photo-dropzone').addEventListener('click', () => document.getElementById('photo-input').click());
         document.getElementById('photo-input').addEventListener('change', (e) => {
@@ -5227,7 +6876,7 @@
                     if (val > 10) val = 10;
                 }
                 input.value = val; if (display) display.innerText = inputId === 'hours-worked' ? val.toFixed(1) : val;
-                SoundEngine.playStepper(); updateProgressPreview();
+                SoundEngine.playStepper(); updateProgressPreview(); autoSaveLogDraft();
             });
         });
         let toastTimeout;
@@ -5803,6 +7452,121 @@
                     <i class="fas fa-share-alt"></i> Copy Post Text
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- POLAROID MEMORY WALL MODAL -->
+    <div id="polaroid-wall-modal" class="certificate-modal hidden">
+        <div class="certificate-card" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <div style="text-align:left;">
+                    <h3 style="font-size: 1.15rem; font-weight: 800; color: #fff;"><i class="fas fa-images" style="color:var(--accent-lime)"></i> Polaroid Memory Wall</h3>
+                    <p style="font-size: 0.72rem; color: var(--text-secondary);">Your engineering journey captured day by day</p>
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" id="timelapse-btn" onclick="startTimeLapse()" class="btn-micro" style="background:rgba(79,172,254,0.15); color:var(--accent-blue); border-color:var(--accent-blue);" title="Play time-lapse flipbook of all project photos">
+                        <i class="fas fa-play"></i> Time-Lapse
+                    </button>
+                    <button class="certificate-close" onclick="closePolaroidWall()" style="position:static;"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+
+            <div id="polaroid-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                <!-- Dynamically loaded Polaroid cards -->
+            </div>
+            
+            <div id="polaroid-empty" class="hidden" style="text-align: center; padding: 30px 10px; color: var(--text-secondary); font-size: 0.8rem;">
+                <i class="fas fa-camera fa-2x" style="opacity: 0.3; margin-bottom: 10px; display: block;"></i>
+                No Polaroid logs recorded yet. Submit your daily photo to build your memory wall!
+            </div>
+        </div>
+    </div>
+
+    <!-- TIMELAPSE MODAL -->
+    <div id="timelapse-modal" class="certificate-modal hidden" style="z-index: 10005;">
+        <div class="certificate-card" style="max-width: 480px; text-align: center; padding: 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div style="font-weight:800; font-size:0.9rem; color:var(--accent-blue);">
+                    <i class="fas fa-film"></i> PROJECT TIME-LAPSE
+                </div>
+                <button class="certificate-close" onclick="stopTimeLapse()" style="position:static;"><i class="fas fa-times"></i></button>
+            </div>
+            <div style="position:relative; min-height:280px; display:flex; align-items:center; justify-content:center; background:#000; border-radius:12px; overflow:hidden; border:1px solid var(--glass-border);">
+                <img id="timelapse-img" src="" style="max-width:100%; max-height:400px; object-fit:contain; display:block;">
+                <div id="timelapse-badge" style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.8); color:var(--accent-lime); padding:4px 10px; border-radius:8px; font-weight:800; font-size:0.75rem; border:1px solid rgba(190,255,51,0.3);">DAY 1</div>
+            </div>
+            <div style="margin-top:14px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <button id="timelapse-play-btn" onclick="toggleTimeLapsePlay()" class="btn" style="flex:1; padding:9px 14px; font-size:0.75rem; background:var(--accent-lime); color:#000; font-weight:900;">
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button onclick="changeTimeLapseSpeed()" id="timelapse-speed-btn" class="btn btn-secondary" style="padding:9px 14px; font-size:0.75rem;">1x Speed</button>
+            </div>
+            <div style="margin-top:10px; font-size:0.68rem; color:var(--text-secondary);" id="timelapse-counter">Frame 1 of 1</div>
+        </div>
+    </div>
+
+    <!-- WEEKLY RETROSPECTIVE MODAL -->
+    <div id="weekly-recap-modal" class="certificate-modal hidden" style="z-index: 10006;">
+        <div class="certificate-card" style="max-width: 440px; padding: 24px; text-align: center;">
+            <button class="certificate-close" onclick="closeWeeklyRecap()"><i class="fas fa-times"></i></button>
+            <div style="font-size:0.7rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:4px;">
+                <i class="fas fa-chart-line"></i> MISSION PERFORMANCE
+            </div>
+            <h3 id="recap-week-title" style="font-size:1.15rem; font-weight:900; color:#fff; margin-bottom:16px;">Weekly Retrospective</h3>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:16px; text-align:left;">
+                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">DAYS LOGGED</div>
+                    <div id="recap-days" style="font-size:1.4rem; font-weight:900; color:var(--accent-lime); margin-top:2px;">0 / 7</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">FOCUS HOURS</div>
+                    <div id="recap-hours" style="font-size:1.4rem; font-weight:900; color:var(--accent-blue); margin-top:2px;">0.0h</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">BLOCKERS CRUSHED</div>
+                    <div id="recap-blockers" style="font-size:1.4rem; font-weight:900; color:#34c759; margin-top:2px;">0</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; padding:12px;">
+                    <div style="font-size:0.65rem; color:var(--text-secondary); font-weight:700;">XP GENERATED</div>
+                    <div id="recap-xp" style="font-size:1.4rem; font-weight:900; color:#f59e0b; margin-top:2px;">+0 XP</div>
+                </div>
+            </div>
+
+            <div id="recap-advisor-eval" style="background:rgba(190,255,51,0.05); border:1px solid rgba(190,255,51,0.2); border-radius:12px; padding:12px 14px; text-align:left; font-size:0.75rem; color:rgba(255,255,255,0.85); line-height:1.4; margin-bottom:16px;">
+                "Telemetry demonstrates consistent forward velocity. Keep pushing toward your next milestone."
+            </div>
+
+            <button onclick="shareWeeklyRecapText()" class="btn" style="width:100%; padding:12px; font-weight:900; font-size:0.8rem; background:var(--accent-lime); color:#000;">
+                <i class="fas fa-share-alt"></i> Share Weekly Summary
+            </button>
+        </div>
+    </div>
+
+    <!-- MYSTERY SUPPLY CRATE MODAL -->
+    <div id="crate-modal" class="certificate-modal hidden" style="z-index: 10010;">
+        <div class="certificate-card" style="max-width:350px; text-align:center; padding:28px 22px;">
+            <div style="font-size:0.72rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">
+                <i class="fas fa-box-open"></i> TACTICAL SUPPLY DROP
+            </div>
+            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:18px;">Telemetry analysis discovered an unallocated supply crate!</p>
+
+            <div id="crate-visual" class="crate-glow" onclick="openCrate()" style="font-size:4.5rem; margin-bottom:16px; cursor:pointer;">
+                📦
+            </div>
+
+            <div id="crate-result" class="hidden" style="margin-bottom:18px;">
+                <div id="crate-reward-icon" style="font-size:2.8rem; margin-bottom:6px;">⚡</div>
+                <div id="crate-reward-title" style="font-size:1.1rem; font-weight:900; color:#fff;">+100 Bonus XP</div>
+                <div id="crate-reward-desc" style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Emergency power cells routed</div>
+            </div>
+
+            <button id="crate-open-btn" onclick="openCrate()" class="btn" style="width:100%; padding:12px; font-weight:900; font-size:0.8rem; background:var(--accent-lime); color:#000;">
+                🔓 TAP TO UNBOX
+            </button>
+            <button id="crate-close-btn" onclick="closeCrateModal()" class="btn btn-secondary hidden" style="width:100%; padding:12px; font-weight:800; font-size:0.8rem;">
+                CLAIM & DISMISS
+            </button>
         </div>
     </div>
 
