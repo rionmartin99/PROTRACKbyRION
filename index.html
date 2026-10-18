@@ -1,12 +1,12 @@
 <!--
-  Version: 2.5.1
-  Date: 2026-10-18 6:25 PM
+  Version: 2.5.2
+  Date: 2026-10-18 6:28 PM
   Change Log:
+  - 2026-10-18: Fix: Replace brain icon with stylized robotic avatar face in R.I.O.N. authentication orb [Fix]
   - 2026-10-18: Fix: Isolate active project list to authenticated engineer and purge unowned legacy projects [Fix]
   - 2026-10-18: Feature: R.I.O.N. avatar identity onboarding, uppercase auto-format, server-authoritative score synchronization, and multi-device profile restore [New Feature]
   - 2026-10-18: Fix: Prevent calendar today styling from wiping photo background and center preview on image [Fix]
   - 2026-10-18: Fix: Automatically close Polaroid Memory Wall overlay when launching Time-Lapse flipbook [Fix]
-  - 2026-10-18: Fix: Removed countdown display from calendar polaroid preview while retaining quiet 6s auto-close [Fix]
 -->
 
 
@@ -2823,7 +2823,7 @@
             <div class="rion-orb-wrap">
                 <div class="rion-orb-ring"></div>
                 <div class="rion-orb-core">
-                    <i class="fas fa-brain"></i>
+                    <i class="fas fa-robot" style="font-size: 1.85rem; color: #000; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));"></i>
                 </div>
             </div>
             <div style="font-size:0.7rem; font-weight:900; letter-spacing:2.5px; color:var(--accent-lime,#beff33); text-transform:uppercase; margin-bottom:4px;">
