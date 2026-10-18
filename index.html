@@ -1,12 +1,12 @@
 <!--
-  Version: 2.5.9
-  Date: 2026-10-18 9:10 PM
+  Version: 2.6.2
+  Date: 2026-10-18 10:25 PM
   Change Log:
+  - 2026-10-18 10:25 PM: Fix: Add silent cloud sync on app launch, no-referrer image bypass in sw.js, and direct photo rendering [Fix]
+  - 2026-10-18 10:05 PM: Fix: Fix undefined DB.storeName crash on project deletion and add case-insensitive confirmation [Fix]
+  - 2026-10-18 9:35 PM: Fix: Enable cross-device photo sync, direct Drive thumbnail resolution, and self-healing cloud upload [Fix]
   - 2026-10-18 9:10 PM: Fix: Streamline dashboard header, declutter top view, remove redundant titles, and space calendar navigation [Fix]
   - 2026-10-18 9:02 PM: Fix: Rebalance and greatly reduce Tactical Supply Crate drop probability to 5% and re-tune loot pool [Fix]
-  - 2026-10-18 8:50 PM: Fix: Ensure project integrity, initialize history array, and resolve TypeError Cannot read properties of undefined (reading 'push') during log submission [Fix]
-  - 2026-10-18 7:35 PM: Fix: Unify scripts, remove disabled state on submit button, add active validation alerts, and harden image imprinting [Fix]
-  - 2026-10-18: Fix: Enable immediate online dispatch in CloudSync, fix IndexedDB keyPath DataError, and auto-sync active projects to Google Sheets [Fix]
 -->
 
 
@@ -15,6 +15,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ProTrack - Project Tracker</title>
     <meta name="description" content="Track your project progress with premium aesthetics and detailed journals.">
@@ -4517,6 +4518,24 @@
             return p;
         }
 
+        function toDirectDriveUrl(url) {
+            if (!url || typeof url !== 'string') return '';
+            if (url.startsWith('data:image/')) return url;
+            const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+            if (match1 && match1[1]) {
+                return `https://drive.google.com/thumbnail?id=${match1[1]}&sz=w1200`;
+            }
+            const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (match2 && match2[1] && (url.includes('drive.google.com') || url.includes('googleusercontent.com'))) {
+                return `https://drive.google.com/thumbnail?id=${match2[1]}&sz=w1200`;
+            }
+            const match3 = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match3 && match3[1] && (url.includes('drive.google.com') || url.includes('googleusercontent.com'))) {
+                return `https://drive.google.com/thumbnail?id=${match3[1]}&sz=w1200`;
+            }
+            return url;
+        }
+
         const DB = {
             name: 'ProTrackDB',
             version: 3,
@@ -4567,8 +4586,39 @@
                     return Promise.resolve(this.photoCache.get(k));
                 }
                 return this.getVal('photos', k).then(val => {
-                    if (val) this.photoCache.set(k, val);
-                    return val;
+                    if (val) {
+                        this.photoCache.set(k, val);
+                        return val;
+                    }
+                    // Cross-device fallback: check active/matching project history for cloud imageUrl
+                    let projId = null;
+                    let dayNum = null;
+                    if (k.includes('_')) {
+                        const parts = k.split('_');
+                        projId = parts[0];
+                        dayNum = parseInt(parts[1], 10);
+                    } else {
+                        dayNum = parseInt(k, 10);
+                    }
+
+                    const projs = (typeof state !== 'undefined' && Array.isArray(state.projects)) ? state.projects : [];
+                    let targetProj = projId ? projs.find(p => String(p.id) === String(projId)) : null;
+                    if (!targetProj && typeof getActiveProject === 'function') {
+                        targetProj = getActiveProject();
+                    }
+
+                    if (targetProj && Array.isArray(targetProj.history)) {
+                        const log = targetProj.history.find(h => Number(h.day) === dayNum);
+                        const rawImg = log ? (log.imageUrl || log.photoUrl || log.photo) : null;
+                        if (rawImg) {
+                            const direct = toDirectDriveUrl(rawImg);
+                            if (direct) {
+                                this.photoCache.set(k, direct);
+                                return direct;
+                            }
+                        }
+                    }
+                    return null;
                 });
             },
             put(storeName, key, val) {
@@ -4896,6 +4946,44 @@
             },
             syncInventory(invData) {
                 return this.dispatch('syncInventory', invData);
+            },
+            async repairMissingCloudPhotos() {
+                const active = (typeof getActiveProject === 'function') ? getActiveProject() : null;
+                if (!active || !Array.isArray(active.history) || !this.isConfigured() || !navigator.onLine) return;
+                for (let i = 0; i < active.history.length; i++) {
+                    const log = active.history[i];
+                    if (!log.imageUrl) {
+                        const localPhoto = await DB.getVal('photos', active.id + '_' + log.day);
+                        if (localPhoto && typeof localPhoto === 'string' && (localPhoto.startsWith('data:image/') || localPhoto.startsWith('http'))) {
+                            try {
+                                const res = await this.executeDirect('logEntry', {
+                                    projectId: active.id,
+                                    projectName: active.name,
+                                    day: log.day,
+                                    logDate: log.localDate || (log.date ? new Date(log.date).toLocaleDateString('en-CA') : new Date().toLocaleDateString('en-CA')),
+                                    workAccomplished: (log.journal && log.journal.done) || '',
+                                    hoursWorked: (log.journal && log.journal.hours) || 0,
+                                    resultsCount: (log.journal && log.journal.results) || 0,
+                                    blocker: (log.journal && log.journal.stuck) || '',
+                                    progressGain: log.inc || 0,
+                                    pointsEarned: 0,
+                                    newProgress: active.progress,
+                                    totalPoints: state.globalXP || 0,
+                                    streak: active.streak,
+                                    totalDays: active.totalDays || 31,
+                                    imprintedImage: localPhoto,
+                                    allowUpdate: true
+                                });
+                                if (res && res.imageUrl) {
+                                    log.imageUrl = toDirectDriveUrl(res.imageUrl);
+                                    saveState();
+                                }
+                            } catch (e) {
+                                console.warn('[CloudSync] Photo upload sync error for Day ' + log.day + ':', e);
+                            }
+                        }
+                    }
+                }
             }
         };
 
@@ -5425,6 +5513,8 @@
             restoreLogDraft();
             checkEveningReminderNotification();
             SyncQueueManager.processQueue();
+            // Silent background telemetry refresh on app launch
+            refreshTelemetryFromCloud(true).catch(() => {});
         }
         function saveState() {
             // Avoid permanently locking a temporary browsed calendar month into storage
@@ -5871,7 +5961,7 @@
                         <button type="button" onclick="event.stopPropagation(); sharePolaroid(${c.day}, '${c.photo}', '${c.date}', '${(c.done || '').replace(/'/g, "\\'")}')" class="btn-micro" style="padding:2px 7px; font-size:0.55rem; background:rgba(79,172,254,0.15); color:var(--accent-blue); border-color:var(--accent-blue);">
                             <i class="fas fa-share-alt"></i> Share
                         </button>
-                        <a href="${c.photo}" download="ProTrack_Day${c.day}.jpg" onclick="event.stopPropagation();" style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:6px; font-size:0.55rem; color:#059669; font-weight:800; text-decoration:none; background:rgba(5,150,105,0.1); border:1px solid rgba(5,150,105,0.3);">
+                        <a href="${c.photo}" ${c.photo.startsWith('http') ? 'target="_blank" rel="noopener"' : ''} download="ProTrack_Day${c.day}.jpg" onclick="event.stopPropagation();" style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:6px; font-size:0.55rem; color:#059669; font-weight:800; text-decoration:none; background:rgba(5,150,105,0.1); border:1px solid rgba(5,150,105,0.3);">
                             <i class="fas fa-download"></i> Save
                         </a>
                     </div>
@@ -7800,13 +7890,17 @@
                     const log = logMap.get(dateStr);
                     const photoKey = active.id + "_" + log.day;
                     const applyPhotoBg = (photoUrl) => {
-                        div.style.backgroundImage = `url(${photoUrl})`;
+                        div.style.backgroundImage = `url("${photoUrl}")`;
                         div.style.backgroundSize = 'cover';
                         div.style.backgroundPosition = 'center 25%';
                         div.style.backgroundRepeat = 'no-repeat';
                     };
                     if (DB.photoCache.has(photoKey)) {
                         applyPhotoBg(DB.photoCache.get(photoKey));
+                    } else if (log.imageUrl) {
+                        const direct = toDirectDriveUrl(log.imageUrl);
+                        DB.photoCache.set(photoKey, direct);
+                        applyPhotoBg(direct);
                     } else {
                         DB.get(photoKey).then(photo => {
                             if (photo) {
@@ -7871,6 +7965,13 @@
             if (downloadEl) {
                 downloadEl.href = photoUrl;
                 downloadEl.download = `ProTrack_Day${log.day}.jpg`;
+                if (photoUrl.startsWith('http')) {
+                    downloadEl.target = '_blank';
+                    downloadEl.rel = 'noopener';
+                } else {
+                    downloadEl.removeAttribute('target');
+                    downloadEl.removeAttribute('rel');
+                }
             }
 
             if (shareEl) {
@@ -7954,9 +8055,13 @@
         async function downloadDayLog(day) {
             const active = getActiveProject();
             if (!active) return;
-            const log = (active.history || []).find(h => h.day === day); if (!log) return;
+            const log = (active.history || []).find(h => Number(h.day) === Number(day)); if (!log) return;
             const photo = await DB.get(active.id + "_" + day); if (!photo) return;
-            const a = document.createElement('a'); a.download = `ProTrack_Day${day}.jpg`; a.href = photo; a.click();
+            if (photo.startsWith('http')) {
+                window.open(photo, '_blank');
+            } else {
+                const a = document.createElement('a'); a.download = `ProTrack_Day${day}.jpg`; a.href = photo; a.click();
+            }
         }
         document.getElementById('close-details-btn').onclick = () => { const m = document.getElementById('log-details-modal'); if (m) m.classList.add('hidden'); };
         function showAchievement(title, points) {
@@ -8074,7 +8179,8 @@
                     date: new Date().toISOString(),
                     localDate: new Date().toLocaleDateString('en-CA'),
                     inc,
-                    journal
+                    journal,
+                    imageUrl: ''
                 };
                 const pts = Math.round(inc * 10);
                 const isCritical = Math.random() < 0.20;
@@ -8161,6 +8267,11 @@
                     totalDays: active.totalDays || 31,
                     imprintedImage: imprinted,
                     allowUpdate: true
+                }).then(syncRes => {
+                    if (syncRes && syncRes.imageUrl) {
+                        logData.imageUrl = toDirectDriveUrl(syncRes.imageUrl);
+                        saveState();
+                    }
                 }).catch(syncErr => console.warn('[CloudSync] Non-blocking sync error:', syncErr));
 
                 e.target.reset(); 
@@ -8282,10 +8393,16 @@
         };
 
         resetInput.oninput = () => {
-            const target = resetMode === 'all' ? "FACTORY RESET" : getActiveProject().name;
-            const match = resetInput.value.trim() === target;
+            const active = getActiveProject();
+            const target = resetMode === 'all' ? "FACTORY RESET" : (active ? active.name.trim() : "");
+            const match = resetInput.value.trim().toLowerCase() === target.toLowerCase();
             confirmResetBtn.disabled = !match;
             confirmResetBtn.style.opacity = match ? "1" : "0.5";
+        };
+        resetInput.onkeydown = (e) => {
+            if (e.key === 'Enter' && !confirmResetBtn.disabled) {
+                confirmResetBtn.click();
+            }
         };
         cancelResetBtn.onclick = () => resetOverlay.classList.add('hidden');
         confirmResetBtn.onclick = async () => {
@@ -8306,13 +8423,28 @@
                 const deletedName = active.name;
 
                 // 1. Scrub IndexedDB for this project
-                const tx = DB.db.transaction(DB.storeName, 'readwrite');
-                const store = tx.objectStore(DB.storeName);
-                const keysReq = store.getAllKeys();
-                keysReq.onsuccess = () => {
-                    const keys = keysReq.result;
-                    keys.forEach(k => { if (k.toString().startsWith(idToDelete + "_")) store.delete(k); });
-                };
+                try {
+                    if (DB.db) {
+                        ['photos', 'historyLogs'].forEach(storeName => {
+                            if (DB.db.objectStoreNames.contains(storeName)) {
+                                const tx = DB.db.transaction(storeName, 'readwrite');
+                                const store = tx.objectStore(storeName);
+                                const keysReq = store.getAllKeys();
+                                keysReq.onsuccess = () => {
+                                    const keys = keysReq.result || [];
+                                    keys.forEach(k => {
+                                        if (k && k.toString().startsWith(idToDelete + "_")) {
+                                            store.delete(k);
+                                            DB.photoCache.delete(k.toString());
+                                        }
+                                    });
+                                };
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn('[DeleteProject] IDB cleanup error:', e);
+                }
 
                 // 2. Remove from state
                 state.projects = state.projects.filter(p => p.id !== idToDelete);
@@ -8890,11 +9022,28 @@
                         const existingMap = new Map((state.projects || []).map(p => [String(p.id), p]));
                         state.projects = res.projects.map(sp => {
                             const local = existingMap.get(String(sp.id));
+                            let mergedHistory = [];
+                            if (local && Array.isArray(local.history) && local.history.length > 0) {
+                                mergedHistory = local.history.map(lh => {
+                                    const remoteMatch = (Array.isArray(sp.history) ? sp.history : []).find(sh => Number(sh.day) === Number(lh.day));
+                                    if (remoteMatch && remoteMatch.imageUrl && !lh.imageUrl) {
+                                        return { ...lh, imageUrl: remoteMatch.imageUrl };
+                                    }
+                                    return lh;
+                                });
+                                if (Array.isArray(sp.history)) {
+                                    sp.history.forEach(sh => {
+                                        if (!mergedHistory.some(mh => Number(mh.day) === Number(sh.day))) {
+                                            mergedHistory.push(sh);
+                                        }
+                                    });
+                                }
+                            } else {
+                                mergedHistory = Array.isArray(sp.history) ? sp.history : [];
+                            }
                             const merged = {
                                 ...sp,
-                                history: (local && Array.isArray(local.history) && local.history.length > 0)
-                                    ? local.history
-                                    : (Array.isArray(sp.history) ? sp.history : []),
+                                history: mergedHistory,
                                 completedMainGoals: (local && Array.isArray(local.completedMainGoals) && local.completedMainGoals.length > 0)
                                     ? local.completedMainGoals
                                     : (Array.isArray(sp.completedMainGoals) ? sp.completedMainGoals : []),
@@ -9000,45 +9149,103 @@
             showRionAuth();
         }
 
-        async function syncWithCloudNow() {
-            closeEngineerProfileModal();
-            if (!state.user || !state.user.fullName) return;
-            showAlert('🛰️ Synchronizing...', 'Connecting to ProTrack mainframe to fetch latest telemetry...');
+        async function refreshTelemetryFromCloud(silent = false) {
+            if (!state.user || !state.user.fullName || !CloudSync.isConfigured() || !navigator.onLine) return;
+            if (!silent) showAlert('🛰️ Synchronizing...', 'Connecting to ProTrack mainframe to fetch latest telemetry...');
             try {
+                // If local device holds photos not yet linked to cloud, upload and repair them
+                await CloudSync.repairMissingCloudPhotos().catch(() => {});
                 const res = await CloudSync.executeDirect('fetchUserData', { fullName: state.user.fullName });
                 if (res && res.status === 'success' && res.projects) {
                     if (res.projects.length > 0) {
+                        let hasChanges = false;
                         res.projects.forEach(sp => {
                             ensureProjectIntegrity(sp);
-                            const existing = state.projects.find(p => String(p.id) === String(sp.id));
+                            const existing = (state.projects || []).find(p => String(p.id) === String(sp.id));
                             if (existing) {
-                                existing.progress = sp.progress;
-                                existing.points = sp.points;
-                                existing.streak = sp.streak;
-                                if (!Array.isArray(existing.history)) existing.history = Array.isArray(sp.history) ? sp.history : [];
-                                if (!Array.isArray(existing.completedMainGoals)) existing.completedMainGoals = Array.isArray(sp.completedMainGoals) ? sp.completedMainGoals : [];
-                                if (!Array.isArray(existing.inventory)) existing.inventory = Array.isArray(sp.inventory) ? sp.inventory : [];
+                                if (sp.progress !== undefined && sp.progress !== existing.progress) {
+                                    existing.progress = sp.progress;
+                                    hasChanges = true;
+                                }
+                                if (sp.points !== undefined && sp.points !== existing.points) {
+                                    existing.points = sp.points;
+                                    hasChanges = true;
+                                }
+                                if (sp.streak !== undefined && sp.streak !== existing.streak) {
+                                    existing.streak = sp.streak;
+                                    hasChanges = true;
+                                }
+                                if (!Array.isArray(existing.history) || existing.history.length === 0) {
+                                    existing.history = Array.isArray(sp.history) ? sp.history : [];
+                                    hasChanges = true;
+                                    (existing.history || []).forEach(h => {
+                                        if (h && h.imageUrl) {
+                                            DB.photoCache.set(existing.id + "_" + h.day, toDirectDriveUrl(h.imageUrl));
+                                        }
+                                    });
+                                } else if (Array.isArray(sp.history)) {
+                                    sp.history.forEach(sh => {
+                                        const match = existing.history.find(eh => Number(eh.day) === Number(sh.day));
+                                        if (match) {
+                                            if (sh.imageUrl && match.imageUrl !== sh.imageUrl) {
+                                                match.imageUrl = sh.imageUrl;
+                                                DB.photoCache.set(existing.id + "_" + match.day, toDirectDriveUrl(sh.imageUrl));
+                                                hasChanges = true;
+                                            }
+                                        } else {
+                                            existing.history.push(sh);
+                                            if (sh.imageUrl) {
+                                                DB.photoCache.set(existing.id + "_" + sh.day, toDirectDriveUrl(sh.imageUrl));
+                                            }
+                                            hasChanges = true;
+                                        }
+                                    });
+                                }
+                                if (!Array.isArray(existing.completedMainGoals) && Array.isArray(sp.completedMainGoals)) existing.completedMainGoals = sp.completedMainGoals;
+                                if (!Array.isArray(existing.inventory) && Array.isArray(sp.inventory)) existing.inventory = sp.inventory;
                             } else {
+                                if (!Array.isArray(state.projects)) state.projects = [];
                                 state.projects.push(sp);
+                                (sp.history || []).forEach(h => {
+                                    if (h && h.imageUrl) {
+                                        DB.photoCache.set(sp.id + "_" + h.day, toDirectDriveUrl(h.imageUrl));
+                                    }
+                                });
+                                hasChanges = true;
                             }
                         });
-                        saveState();
-                        updateUI();
-                        showAlert('✅ Telemetry Updated', `Synchronized ${res.projects.length} project(s) with Google Sheets.`);
+                        if (hasChanges || !silent) {
+                            saveState();
+                            updateUI();
+                            renderCalendar();
+                        }
+                        if (!silent) showAlert('✅ Telemetry Updated', `Synchronized ${res.projects.length} project(s) with Google Sheets.`);
                     } else if (state.projects && state.projects.length > 0) {
                         // Push local projects to Google Sheets
                         state.projects.forEach(p => CloudSync.syncProject(p));
-                        showAlert('✅ Telemetry Updated', `Uploaded ${state.projects.length} project(s) to Google Sheets.`);
+                        if (!silent) showAlert('✅ Telemetry Updated', `Uploaded ${state.projects.length} project(s) to Google Sheets.`);
                     } else {
-                        showAlert('Cloud Notice', 'Telemetry verified. No remote changes detected.');
+                        if (!silent) showAlert('Cloud Notice', 'Telemetry verified. No remote changes detected.');
                     }
                 } else {
-                    showAlert('Cloud Notice', 'Telemetry verified. No remote changes detected.');
+                    if (!silent) showAlert('Cloud Notice', 'Telemetry verified. No remote changes detected.');
                 }
             } catch (e) {
-                showAlert('Sync Offline', 'Unable to reach Google Sheets. Local telemetry remains active.');
+                if (!silent) showAlert('Sync Offline', 'Unable to reach Google Sheets. Local telemetry remains active.');
             }
         }
+
+        async function syncWithCloudNow() {
+            closeEngineerProfileModal();
+            return refreshTelemetryFromCloud(false);
+        }
+
+        // Auto-sync when switching back to tab / app on mobile
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                refreshTelemetryFromCloud(true).catch(() => {});
+            }
+        });
 
         // Auto uppercase on input
         const rionInput = document.getElementById('rion-name-input');
@@ -9071,6 +9278,10 @@
             try {
                 await loadState();
                 updateUI();
+                // Background self-healing upload for any local photos missing from cloud
+                setTimeout(() => {
+                    CloudSync.repairMissingCloudPhotos().catch(() => {});
+                }, 2500);
             } catch(bootErr) {
                 console.error('[Boot] Initialization error:', bootErr);
             }
