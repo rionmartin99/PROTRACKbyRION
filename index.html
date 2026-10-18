@@ -1,12 +1,12 @@
 <!--
-  Version: 2.4.3
-  Date: 2026-10-18 4:58 PM
+  Version: 2.5.0
+  Date: 2026-10-18 6:20 PM
   Change Log:
+  - 2026-10-18: Feature: R.I.O.N. avatar identity onboarding, uppercase auto-format, server-authoritative score synchronization, and multi-device profile restore [New Feature]
   - 2026-10-18: Fix: Prevent calendar today styling from wiping photo background and center preview on image [Fix]
   - 2026-10-18: Fix: Automatically close Polaroid Memory Wall overlay when launching Time-Lapse flipbook [Fix]
   - 2026-10-18: Fix: Removed countdown display from calendar polaroid preview while retaining quiet 6s auto-close [Fix]
   - 2026-10-18: Feature: Calendar polaroid overlay preview with close button and 6-second auto-close timer [New Feature]
-  - 2026-10-18: Feature: Added Service Worker PWA caching, IndexedDB state offload, hardened Apps Script sync queue, and batched RAF rendering [New Feature]
 -->
 
 
@@ -2705,11 +2705,157 @@
             animation: crateHover 2s ease-in-out infinite;
             filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.6));
         }
+
+        /* R.I.O.N. Avatar Identity & Holographic Auth */
+        .rion-auth-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100050;
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.96), rgba(0, 0, 0, 0.98));
+            backdrop-filter: blur(14px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 1;
+            transition: opacity 0.4s ease;
+        }
+        .rion-auth-card {
+            width: 100%;
+            max-width: 440px;
+            background: linear-gradient(145deg, rgba(20, 24, 33, 0.96), rgba(10, 12, 16, 0.98));
+            border: 1px solid rgba(190, 255, 51, 0.35);
+            border-radius: 24px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(190, 255, 51, 0.15), 0 25px 60px rgba(0, 0, 0, 0.85);
+            position: relative;
+            overflow: hidden;
+        }
+        .rion-auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent-lime, #beff33), transparent);
+        }
+        .rion-orb-wrap {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 16px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .rion-orb-core {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #beff33, #059669, #000);
+            box-shadow: 0 0 25px rgba(190, 255, 51, 0.8), inset 0 0 12px rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-size: 1.5rem;
+            animation: rionPulse 3s ease-in-out infinite;
+        }
+        .rion-orb-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 1px dashed rgba(190, 255, 51, 0.4);
+            animation: rionSpin 12s linear infinite;
+        }
+        @keyframes rionPulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(190,255,51,0.6)); }
+            50% { transform: scale(1.06); filter: drop-shadow(0 0 28px rgba(190,255,51,0.95)); }
+        }
+        @keyframes rionSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .rion-speech-bubble {
+            background: rgba(190, 255, 51, 0.05);
+            border: 1px solid rgba(190, 255, 51, 0.25);
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.95);
+            margin-bottom: 20px;
+            text-align: left;
+            position: relative;
+        }
+        .rion-name-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            text-align: center;
+            transition: all 0.25s ease;
+            outline: none;
+            font-family: inherit;
+        }
+        .rion-name-input:focus {
+            border-color: var(--accent-lime, #beff33);
+            box-shadow: 0 0 15px rgba(190, 255, 51, 0.25);
+            background: rgba(0, 0, 0, 0.8);
+        }
     </style>
 </head>
 
 <body class="shake-screen-disabled">
     <div id="bg-level" class="bg-level-indicator">0</div>
+
+    <!-- R.I.O.N. AVATAR IDENTITY AUTHENTICATION OVERLAY -->
+    <div id="rion-auth-overlay" class="rion-auth-overlay hidden">
+        <div class="rion-auth-card">
+            <div class="rion-orb-wrap">
+                <div class="rion-orb-ring"></div>
+                <div class="rion-orb-core">
+                    <i class="fas fa-brain"></i>
+                </div>
+            </div>
+            <div style="font-size:0.7rem; font-weight:900; letter-spacing:2.5px; color:var(--accent-lime,#beff33); text-transform:uppercase; margin-bottom:4px;">
+                TELEMETRY PROTOCOL ACTIVE
+            </div>
+            <h2 style="font-size:1.3rem; font-weight:900; color:#fff; margin-bottom:12px;">R.I.O.N. MISSION IDENTITY</h2>
+            
+            <div id="rion-speech" class="rion-speech-bubble">
+                <i class="fas fa-terminal" style="color:var(--accent-lime,#beff33); margin-right:6px;"></i>
+                <span id="rion-speech-text">GREETINGS, ENGINEER. I AM R.I.O.N., YOUR MISSION AI. IDENTIFY YOURSELF TO INITIALIZE TELEMETRY. WHAT IS YOUR FULL NAME?</span>
+            </div>
+
+            <form id="rion-auth-form" onsubmit="handleRionAuthSubmit(event)">
+                <div style="margin-bottom:14px; text-align:left;">
+                    <label style="font-size:0.68rem; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:6px;">
+                        Full Name (Capitalized)
+                    </label>
+                    <input type="text" id="rion-name-input" class="rion-name-input" placeholder="E.G. JUAN DELA CRUZ" autocomplete="name" required>
+                    <div style="font-size:0.62rem; color:var(--text-secondary); margin-top:6px; text-align:center;">
+                        <i class="fas fa-shield-alt" style="color:var(--accent-lime,#beff33)"></i> Password is automatically bound to your family name.
+                    </div>
+                </div>
+
+                <div id="rion-auth-status" style="font-size:0.75rem; min-height:20px; margin-bottom:12px; font-weight:700;"></div>
+
+                <button type="submit" id="rion-auth-btn" class="btn" style="width:100%; padding:14px; font-size:0.85rem; font-weight:900; letter-spacing:1px; background:var(--accent-lime,#beff33); color:#000; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fas fa-fingerprint"></i> INITIALIZE TELEMETRY LINK
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- Setup -->
     <section id="setup-page" class="hidden">
         <button id="close-setup-btn" class="btn-icon"
@@ -2772,7 +2918,11 @@
                         <i class="fas fa-clock" style="margin-right: 4px;"></i> <span id="countdown-text"></span>
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div id="engineer-profile-badge" onclick="showEngineerProfileModal()" style="display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:12px; background:rgba(190,255,51,0.08); border:1px solid rgba(190,255,51,0.3); color:var(--accent-lime); font-size:0.75rem; font-weight:800; cursor:pointer; letter-spacing:0.5px;" title="Active Engineer Profile">
+                        <i class="fas fa-id-badge"></i>
+                        <span id="engineer-header-name">ENGINEER</span>
+                    </div>
                     <div id="tutorial-btn" class="btn-icon"
                         style="padding: 8px; border-radius: 12px; background: var(--secondary-bg); color: var(--text-secondary); cursor: pointer; font-size: 0.9rem;">
                         <i class="fas fa-info-circle"></i>
@@ -3892,6 +4042,7 @@
         const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7AYUS2yTV_92W567HnbCgFHDJ_j2f0AnKbeNYekYQ3e7u-xI7190BA5ZT7oOlFURF/exec';
 
         let state = {
+            user: null, // { fullName: 'JUAN DELA CRUZ', firstName: 'JUAN', lastName: 'DELA CRUZ' }
             projects: [],
             activeProjectId: null,
             gasWebAppUrl: GAS_WEB_APP_URL,
@@ -4100,6 +4251,17 @@
                             }
                         } else if (res && (res.status === 'success' || res.status === 'ignored')) {
                             await DB.delete('syncQueue', item.id);
+                            if (res.status === 'success' && res.totalPoints !== undefined) {
+                                state.globalXP = res.totalPoints;
+                                const active = getActiveProject();
+                                if (active) {
+                                    if (res.streak !== undefined) active.streak = res.streak;
+                                    if (res.progress !== undefined) active.progress = res.progress;
+                                    active.points = res.totalPoints;
+                                }
+                                saveState();
+                                scheduleUpdateUI();
+                            }
                         } else {
                             item.retries = (item.retries || 0) + 1;
                             if (item.retries >= 5) {
@@ -4159,6 +4321,9 @@
                     return Promise.resolve({ status: 'ignored' });
                 }
 
+                const owner = (state.user ? state.user.fullName : '');
+                const enrichedData = { ...data, owner: owner, user: state.user };
+
                 // Native Google Apps Script execution
                 if (this.isGasEnvironment()) {
                     return new Promise((resolve) => {
@@ -4169,11 +4334,13 @@
                                 resolve({ status: 'error', error: err });
                             });
 
-                        if (action === 'logEntry') runner.saveLog(data);
-                        else if (action === 'syncProject') runner.syncProject(data);
-                        else if (action === 'validateMilestone') runner.saveMilestone(data);
-                        else if (action === 'syncInventory') runner.saveInventory(data);
-                        else runner.doPost({ postData: { contents: JSON.stringify({ action, data }) } });
+                        if (action === 'logEntry') runner.saveLog(enrichedData);
+                        else if (action === 'syncProject') runner.syncProject(enrichedData);
+                        else if (action === 'validateMilestone') runner.saveMilestone(enrichedData);
+                        else if (action === 'syncInventory') runner.saveInventory(enrichedData);
+                        else if (action === 'loginOrRegister') runner.loginOrRegister(enrichedData);
+                        else if (action === 'fetchUserData') runner.fetchUserData(enrichedData);
+                        else runner.doPost({ postData: { contents: JSON.stringify({ action, data: enrichedData, owner: owner, user: state.user }) } });
                     });
                 }
 
@@ -4184,13 +4351,17 @@
 
                 return fetch(url, {
                     method: 'POST',
-                    mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action, data }),
+                    body: JSON.stringify({ action, data: enrichedData, owner: owner, user: state.user }),
                     signal: controller.signal
-                }).then(() => {
+                }).then(async (response) => {
                     clearTimeout(timeoutId);
-                    return { status: 'success' };
+                    try {
+                        const json = await response.json();
+                        return json || { status: 'success' };
+                    } catch(e) {
+                        return { status: 'success' };
+                    }
                 }).catch(err => {
                     clearTimeout(timeoutId);
                     console.warn('[CloudSync] Web App POST failed:', err);
@@ -4718,16 +4889,20 @@
                     }
                 }
 
+                // Save migration snapshot to IndexedDB
+                DB.put('state', 'appState', state).catch(() => {});
+            }
+
+            // Verify R.I.O.N. authentication
+            if (!state.user || !state.user.fullName) {
+                showRionAuth();
+            } else {
+                updateEngineerHeader();
                 if (state.projects && state.projects.length > 0) {
                     document.getElementById('setup-page').classList.add('hidden');
                 } else {
                     showSetup();
                 }
-
-                // Save migration snapshot to IndexedDB
-                DB.put('state', 'appState', state).catch(() => {});
-            } else {
-                showSetup();
             }
             updateUI();
             initTimers();
@@ -8305,6 +8480,27 @@
         </div>
     </div>
 
+    <!-- ENGINEER PROFILE & LOGOUT MODAL -->
+    <div id="engineer-profile-modal" class="certificate-modal hidden" style="z-index: 100060;">
+        <div class="certificate-card" style="max-width:380px; text-align:center; padding:28px 22px;">
+            <button class="certificate-close" onclick="closeEngineerProfileModal()"><i class="fas fa-times"></i></button>
+            <div style="font-size:0.7rem; font-weight:900; color:var(--accent-lime); letter-spacing:2px; text-transform:uppercase; margin-bottom:6px;">
+                <i class="fas fa-user-astronaut"></i> ACTIVE ENGINEER
+            </div>
+            <h3 id="profile-modal-fullname" style="font-size:1.2rem; font-weight:900; color:#fff; margin-bottom:4px;">ENGINEER</h3>
+            <p id="profile-modal-rion-greeting" style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:20px; font-style:italic;"></p>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button type="button" onclick="syncWithCloudNow()" class="btn" style="padding:12px; font-weight:800; font-size:0.78rem; background:rgba(190,255,51,0.15); color:var(--accent-lime); border:1px solid rgba(190,255,51,0.3); display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fas fa-sync-alt"></i> Sync Telemetry With Cloud
+                </button>
+                <button type="button" onclick="switchEngineerAccount()" class="btn btn-secondary" style="padding:12px; font-weight:800; font-size:0.78rem; border-color:#ff4444; color:#ff4444; display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <i class="fas fa-sign-out-alt"></i> Switch Engineer / Log Out
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- CUSTOM ALERT OVERLAY -->
     <div id="custom-alert-overlay"
         style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.82); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
@@ -8319,6 +8515,202 @@
         </div>
     </div>
     <script>
+        // R.I.O.N. Authentication & Session Engine
+        function showRionAuth() {
+            const overlay = document.getElementById('rion-auth-overlay');
+            if (!overlay) return;
+            const input = document.getElementById('rion-name-input');
+            const speech = document.getElementById('rion-speech-text');
+            const status = document.getElementById('rion-auth-status');
+            if (speech) speech.innerText = "GREETINGS, ENGINEER. I AM R.I.O.N., YOUR MISSION AI. IDENTIFY YOURSELF TO INITIALIZE TELEMETRY. WHAT IS YOUR FULL NAME?";
+            if (status) status.innerText = "";
+            if (input) {
+                input.value = "";
+                setTimeout(() => input.focus(), 300);
+            }
+            overlay.classList.remove('hidden');
+        }
+
+        async function handleRionAuthSubmit(e) {
+            if (e) e.preventDefault();
+            const input = document.getElementById('rion-name-input');
+            const status = document.getElementById('rion-auth-status');
+            const speech = document.getElementById('rion-speech-text');
+            const btn = document.getElementById('rion-auth-btn');
+
+            const raw = (input.value || "").trim().toUpperCase();
+            if (raw.length < 2) {
+                if (status) {
+                    status.style.color = "#ff4444";
+                    status.innerText = "Please provide your valid Full Name.";
+                }
+                return;
+            }
+
+            const parts = raw.split(/\s+/);
+            const firstName = parts[0];
+            const lastName = parts.length > 1 ? parts.slice(1).join(" ") : parts[0];
+
+            if (status) {
+                status.style.color = "var(--accent-lime)";
+                status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Contacting ProTrack Mainframe...';
+            }
+            if (btn) btn.disabled = true;
+
+            try {
+                const res = await CloudSync.executeDirect('loginOrRegister', { fullName: raw });
+                if (res && res.status === 'success') {
+                    state.user = {
+                        fullName: raw,
+                        firstName: res.user ? res.user.firstName : firstName,
+                        lastName: res.user ? res.user.lastName : lastName
+                    };
+
+                    if (res.projects && Array.isArray(res.projects) && res.projects.length > 0) {
+                        res.projects.forEach(sp => {
+                            const existing = state.projects.find(p => String(p.id) === String(sp.id));
+                            if (existing) {
+                                existing.name = sp.name;
+                                existing.description = sp.description;
+                                existing.totalDays = sp.totalDays;
+                                existing.startDate = sp.startDate;
+                                existing.progress = sp.progress;
+                                existing.points = sp.points;
+                                existing.streak = sp.streak;
+                                existing.owner = sp.owner;
+                            } else {
+                                state.projects.push({
+                                    id: sp.id,
+                                    name: sp.name,
+                                    description: sp.description,
+                                    startDate: sp.startDate,
+                                    totalDays: sp.totalDays || 31,
+                                    progress: sp.progress || 0,
+                                    history: [],
+                                    points: sp.points || 0,
+                                    streak: sp.streak || 0,
+                                    completedMainGoals: [],
+                                    clockStartedAt: null,
+                                    clockTotalSeconds: 0,
+                                    owner: sp.owner || raw
+                                });
+                            }
+                        });
+                        if (!state.activeProjectId && state.projects.length > 0) {
+                            state.activeProjectId = state.projects[0].id;
+                        }
+                    }
+
+                    saveState();
+                    updateEngineerHeader();
+
+                    if (speech) speech.innerText = `ACCESS GRANTED. WELCOME BACK, ENGINEER ${firstName}. ALL TELEMETRY SYNCHRONIZED.`;
+                    SoundEngine.playSuccess();
+
+                    setTimeout(() => {
+                        document.getElementById('rion-auth-overlay').classList.add('hidden');
+                        if (btn) btn.disabled = false;
+                        if (!state.projects || state.projects.length === 0) {
+                            showSetup();
+                        } else {
+                            document.getElementById('setup-page').classList.add('hidden');
+                            updateUI();
+                        }
+                    }, 900);
+                } else {
+                    state.user = { fullName: raw, firstName: firstName, lastName: lastName };
+                    saveState();
+                    updateEngineerHeader();
+                    if (speech) speech.innerText = `OFFLINE MODE INITIALIZED. WELCOME, ENGINEER ${firstName}.`;
+                    SoundEngine.playSuccess();
+                    setTimeout(() => {
+                        document.getElementById('rion-auth-overlay').classList.add('hidden');
+                        if (btn) btn.disabled = false;
+                        if (!state.projects || state.projects.length === 0) {
+                            showSetup();
+                        } else {
+                            document.getElementById('setup-page').classList.add('hidden');
+                            updateUI();
+                        }
+                    }, 900);
+                }
+            } catch (err) {
+                state.user = { fullName: raw, firstName: firstName, lastName: lastName };
+                saveState();
+                updateEngineerHeader();
+                setTimeout(() => {
+                    document.getElementById('rion-auth-overlay').classList.add('hidden');
+                    if (btn) btn.disabled = false;
+                    updateUI();
+                }, 600);
+            }
+        }
+
+        function updateEngineerHeader() {
+            const el = document.getElementById('engineer-header-name');
+            if (!el) return;
+            if (state.user && state.user.firstName) {
+                el.innerText = `ENGINEER ${state.user.firstName}`;
+            } else {
+                el.innerText = 'ENGINEER';
+            }
+        }
+
+        function showEngineerProfileModal() {
+            if (!state.user) {
+                showRionAuth();
+                return;
+            }
+            document.getElementById('profile-modal-fullname').innerText = state.user.fullName || "ENGINEER";
+            document.getElementById('profile-modal-rion-greeting').innerText = `"Systems optimal, Engineer ${state.user.firstName}. Ready for your next mission dispatch." — R.I.O.N.`;
+            document.getElementById('engineer-profile-modal').classList.remove('hidden');
+        }
+
+        function closeEngineerProfileModal() {
+            document.getElementById('engineer-profile-modal').classList.add('hidden');
+        }
+
+        function switchEngineerAccount() {
+            closeEngineerProfileModal();
+            state.user = null;
+            saveState();
+            showRionAuth();
+        }
+
+        async function syncWithCloudNow() {
+            closeEngineerProfileModal();
+            if (!state.user || !state.user.fullName) return;
+            showAlert('🛰️ Synchronizing...', 'Connecting to ProTrack mainframe to fetch latest telemetry...');
+            try {
+                const res = await CloudSync.executeDirect('fetchUserData', { fullName: state.user.fullName });
+                if (res && res.status === 'success' && res.projects) {
+                    res.projects.forEach(sp => {
+                        const existing = state.projects.find(p => String(p.id) === String(sp.id));
+                        if (existing) {
+                            existing.progress = sp.progress;
+                            existing.points = sp.points;
+                            existing.streak = sp.streak;
+                        }
+                    });
+                    saveState();
+                    updateUI();
+                    showAlert('✅ Telemetry Updated', `Synchronized ${res.projects.length} project(s) with Google Sheets.`);
+                } else {
+                    showAlert('Cloud Notice', 'Telemetry verified. No remote changes detected.');
+                }
+            } catch (e) {
+                showAlert('Sync Offline', 'Unable to reach Google Sheets. Local telemetry remains active.');
+            }
+        }
+
+        // Auto uppercase on input
+        const rionInput = document.getElementById('rion-name-input');
+        if (rionInput) {
+            rionInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.toUpperCase();
+            });
+        }
+
         function showAlert(title, body) {
             document.getElementById('custom-alert-title').innerText = title;
             document.getElementById('custom-alert-body').innerText = body;
