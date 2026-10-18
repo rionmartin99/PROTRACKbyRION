@@ -1,12 +1,12 @@
 <!--
-  Version: 2.5.6
-  Date: 2026-10-18 7:35 PM
+  Version: 2.5.7
+  Date: 2026-10-18 8:50 PM
   Change Log:
+  - 2026-10-18 8:50 PM: Fix: Ensure project integrity, initialize history array, and resolve TypeError Cannot read properties of undefined (reading 'push') during log submission [Fix]
   - 2026-10-18 7:35 PM: Fix: Unify scripts, remove disabled state on submit button, add active validation alerts, and harden image imprinting [Fix]
   - 2026-10-18: Fix: Enable immediate online dispatch in CloudSync, fix IndexedDB keyPath DataError, and auto-sync active projects to Google Sheets [Fix]
   - 2026-10-18: Fix: Add explicit confirmation dialog and cloud sync upon project deletion [Fix]
   - 2026-10-18: Fix: Enable allowUpdate on daily dispatches, add no-cors cloud sync fallback, extend timeout to 60s, and optimize image payload [Fix]
-  - 2026-10-18: Fix: Replace brain icon with stylized robotic avatar face in R.I.O.N. authentication orb [Fix]
 -->
 
 
@@ -4354,8 +4354,25 @@
             notificationsEnabled: false
         };
 
+        function ensureProjectIntegrity(p) {
+            if (!p || typeof p !== 'object') return p;
+            if (!Array.isArray(p.history)) p.history = [];
+            if (!Array.isArray(p.completedMainGoals)) p.completedMainGoals = [];
+            if (!Array.isArray(p.inventory)) p.inventory = [];
+            if (p.progress === undefined || p.progress === null || isNaN(p.progress)) p.progress = 0;
+            if (p.streak === undefined || p.streak === null || isNaN(p.streak)) p.streak = 0;
+            if (p.points === undefined || p.points === null || isNaN(p.points)) p.points = 0;
+            if (!p.totalDays) p.totalDays = 31;
+            if (p.clockStartedAt === undefined) p.clockStartedAt = null;
+            if (p.clockTotalSeconds === undefined) p.clockTotalSeconds = 0;
+            return p;
+        }
+
         function getActiveProject() {
-            return state.projects.find(p => p.id === state.activeProjectId) || state.projects[0];
+            if (!state.projects || !Array.isArray(state.projects)) state.projects = [];
+            let p = state.projects.find(p => p.id === state.activeProjectId) || state.projects[0];
+            if (p) ensureProjectIntegrity(p);
+            return p;
         }
 
         const DB = {
@@ -5219,11 +5236,10 @@
                     state = { ...state, ...raw };
                     if (state.streakFreezes === undefined) state.streakFreezes = 1;
                     if (state.comebackBonusEligible === undefined) state.comebackBonusEligible = false;
-                    // Ensure project-specific clocks and totalDays exist
+                    if (!Array.isArray(state.projects)) state.projects = [];
+                    // Ensure project-specific clocks, history, and totalDays exist
                     state.projects.forEach(p => {
-                        if (p.clockStartedAt === undefined) p.clockStartedAt = null;
-                        if (p.clockTotalSeconds === undefined) p.clockTotalSeconds = 0;
-                        if (!p.totalDays) p.totalDays = 31;
+                        ensureProjectIntegrity(p);
                     });
                     // Final migration for legacy timer
                     if (raw.timers && raw.timers.clock && raw.timers.clock.startedAt) {
@@ -7747,7 +7763,8 @@
 
         async function viewDayDetails(date, targetDiv) {
             const active = getActiveProject();
-            const log = active.history.find(h => (h.localDate === date) || (h.date && h.date.split('T')[0] === date)); if (!log) return;
+            if (!active) return;
+            const log = (active.history || []).find(h => (h.localDate === date) || (h.date && h.date.split('T')[0] === date)); if (!log) return;
             const photo = await DB.get(active.id + "_" + log.day);
             if (photo) {
                 // If there is an image, show the Polaroid overlay preview with close button and 6s auto-close delay
@@ -7791,7 +7808,8 @@
         document.addEventListener('click', (e) => { if (!e.target.closest('.scifi-hud') && !e.target.closest('.calendar-day') && !e.target.closest('.milestone') && !e.target.id.includes('timeline-card')) { const h = document.getElementById('active-hud'); if (h) h.remove(); } });
         async function downloadDayLog(day) {
             const active = getActiveProject();
-            const log = active.history.find(h => h.day === day); if (!log) return;
+            if (!active) return;
+            const log = (active.history || []).find(h => h.day === day); if (!log) return;
             const photo = await DB.get(active.id + "_" + day); if (!photo) return;
             const a = document.createElement('a'); a.download = `ProTrack_Day${day}.jpg`; a.href = photo; a.click();
         }
@@ -7962,6 +7980,7 @@
 
                 // Reset and save
                 active.lastLogDate = logData.date;
+                if (!Array.isArray(active.history)) active.history = [];
                 active.history.push(logData);
                 active.clockTotalSeconds = 0;
 
@@ -8070,6 +8089,7 @@
                 if (Math.round(s) >= 100) unlockRelic('perfectionist');
                 let bonus = (projectDay <= goal.targetDay) ? 125 : 0;
                 state.globalXP = (state.globalXP || 0) + bonus;
+                if (!Array.isArray(active.completedMainGoals)) active.completedMainGoals = [];
                 active.completedMainGoals.push({ goalId: goal.goalId, rating: s, day: projectDay, bonus });
                 saveState(); SoundEngine.playSuccess(); document.body.classList.add('shake-screen'); setTimeout(() => document.body.classList.remove('shake-screen'), 400);
                 showAchievement(goal.title, Math.round(s * 10) + bonus);
@@ -8722,11 +8742,31 @@
 
                     // Cleanly assign projects owned by this user
                     if (res.projects && Array.isArray(res.projects) && res.projects.length > 0) {
-                        state.projects = res.projects;
+                        const existingMap = new Map((state.projects || []).map(p => [String(p.id), p]));
+                        state.projects = res.projects.map(sp => {
+                            const local = existingMap.get(String(sp.id));
+                            const merged = {
+                                ...sp,
+                                history: (local && Array.isArray(local.history) && local.history.length > 0)
+                                    ? local.history
+                                    : (Array.isArray(sp.history) ? sp.history : []),
+                                completedMainGoals: (local && Array.isArray(local.completedMainGoals) && local.completedMainGoals.length > 0)
+                                    ? local.completedMainGoals
+                                    : (Array.isArray(sp.completedMainGoals) ? sp.completedMainGoals : []),
+                                inventory: (local && Array.isArray(local.inventory) && local.inventory.length > 0)
+                                    ? local.inventory
+                                    : (Array.isArray(sp.inventory) ? sp.inventory : []),
+                                clockStartedAt: (local && local.clockStartedAt !== undefined) ? local.clockStartedAt : null,
+                                clockTotalSeconds: (local && local.clockTotalSeconds !== undefined) ? local.clockTotalSeconds : 0
+                            };
+                            ensureProjectIntegrity(merged);
+                            return merged;
+                        });
                     } else {
                         // Adopt and claim any existing local projects for this engineer
                         (state.projects || []).forEach(p => {
                             if (!p.owner) p.owner = raw;
+                            ensureProjectIntegrity(p);
                         });
                         state.projects = (state.projects || []).filter(p => p.owner && p.owner === raw);
                         // Immediately sync them to Google Sheets
@@ -8824,11 +8864,15 @@
                 if (res && res.status === 'success' && res.projects) {
                     if (res.projects.length > 0) {
                         res.projects.forEach(sp => {
+                            ensureProjectIntegrity(sp);
                             const existing = state.projects.find(p => String(p.id) === String(sp.id));
                             if (existing) {
                                 existing.progress = sp.progress;
                                 existing.points = sp.points;
                                 existing.streak = sp.streak;
+                                if (!Array.isArray(existing.history)) existing.history = Array.isArray(sp.history) ? sp.history : [];
+                                if (!Array.isArray(existing.completedMainGoals)) existing.completedMainGoals = Array.isArray(sp.completedMainGoals) ? sp.completedMainGoals : [];
+                                if (!Array.isArray(existing.inventory)) existing.inventory = Array.isArray(sp.inventory) ? sp.inventory : [];
                             } else {
                                 state.projects.push(sp);
                             }
