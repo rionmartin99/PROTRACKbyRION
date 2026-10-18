@@ -1,12 +1,12 @@
 <!--
-  Version: 2.5.3
-  Date: 2026-10-18 6:46 PM
+  Version: 2.5.5
+  Date: 2026-10-18 7:10 PM
   Change Log:
+  - 2026-10-18: Fix: Enable immediate online dispatch in CloudSync, fix IndexedDB keyPath DataError, and auto-sync active projects to Google Sheets [Fix]
+  - 2026-10-18: Fix: Add explicit confirmation dialog and cloud sync upon project deletion [Fix]
   - 2026-10-18: Fix: Enable allowUpdate on daily dispatches, add no-cors cloud sync fallback, extend timeout to 60s, and optimize image payload [Fix]
   - 2026-10-18: Fix: Replace brain icon with stylized robotic avatar face in R.I.O.N. authentication orb [Fix]
   - 2026-10-18: Fix: Isolate active project list to authenticated engineer and purge unowned legacy projects [Fix]
-  - 2026-10-18: Feature: R.I.O.N. avatar identity onboarding, uppercase auto-format, server-authoritative score synchronization, and multi-device profile restore [New Feature]
-  - 2026-10-18: Fix: Prevent calendar today styling from wiping photo background and center preview on image [Fix]
 -->
 
 
@@ -4069,7 +4069,7 @@
 
         const DB = {
             name: 'ProTrackDB',
-            version: 2,
+            version: 3,
             db: null,
             photoCache: new Map(),
             init() {
@@ -4126,14 +4126,25 @@
                     if (!this.db) { resolve(); return; }
                     try {
                         const tx = this.db.transaction(storeName, 'readwrite');
-                        if (key !== undefined && key !== null) {
-                            tx.objectStore(storeName).put(val, key);
+                        const store = tx.objectStore(storeName);
+                        // If object store uses inline keys (keyPath), pass value object directly without explicit key argument
+                        if (store.keyPath) {
+                            const dataObj = (val !== undefined && val !== null) ? val : key;
+                            store.put(dataObj);
+                        } else if (key !== undefined && key !== null) {
+                            store.put(val, key);
                         } else {
-                            tx.objectStore(storeName).put(val);
+                            store.put(val);
                         }
                         tx.oncomplete = () => resolve();
-                        tx.onerror = () => resolve();
-                    } catch(e) { resolve(); }
+                        tx.onerror = (err) => {
+                            console.warn('[DB] put error in ' + storeName + ':', err);
+                            resolve();
+                        };
+                    } catch(e) {
+                        console.warn('[DB] put exception in ' + storeName + ':', e);
+                        resolve();
+                    }
                 });
             },
             getVal(storeName, key) {
@@ -4339,6 +4350,7 @@
 
                         if (action === 'logEntry') runner.saveLog(enrichedData);
                         else if (action === 'syncProject') runner.syncProject(enrichedData);
+                        else if (action === 'deleteProject') runner.deleteProject(enrichedData);
                         else if (action === 'validateMilestone') runner.saveMilestone(enrichedData);
                         else if (action === 'syncInventory') runner.saveInventory(enrichedData);
                         else if (action === 'loginOrRegister') runner.loginOrRegister(enrichedData);
@@ -4386,6 +4398,17 @@
                 });
             },
             dispatch(action, data) {
+                // Direct network execution when online for immediate Google Sheets synchronization
+                if (navigator.onLine && this.isConfigured()) {
+                    SyncQueueManager.updateIndicator();
+                    return this.executeDirect(action, data).then(res => {
+                        SyncQueueManager.updateIndicator();
+                        return res;
+                    }).catch(err => {
+                        console.warn('[CloudSync] Direct execution failed, falling back to offline queue:', err);
+                        return SyncQueueManager.enqueue(action, data);
+                    });
+                }
                 return SyncQueueManager.enqueue(action, data);
             },
             syncProject(proj) {
@@ -4398,7 +4421,8 @@
                     startDate: proj.startDate,
                     progress: proj.progress || 0,
                     totalPoints: state.globalXP || 0,
-                    streak: proj.streak || 0
+                    streak: proj.streak || 0,
+                    owner: proj.owner || (state.user ? state.user.fullName : '')
                 });
             },
             syncProjectDebounced(proj) {
@@ -4409,6 +4433,13 @@
             },
             syncLogEntry(logData) {
                 return this.dispatch('logEntry', logData);
+            },
+            deleteProject(projectId) {
+                if (!projectId) return Promise.resolve();
+                return this.dispatch('deleteProject', {
+                    projectId: projectId,
+                    owner: state.user ? state.user.fullName : ''
+                });
             },
             syncMilestone(milestoneData) {
                 return this.dispatch('validateMilestone', milestoneData);
@@ -4915,13 +4946,19 @@
                 showRionAuth();
             } else {
                 updateEngineerHeader();
-                // Strictly isolate state.projects to current authenticated user
+                // Ensure existing local projects are claimed by authenticated engineer
+                (state.projects || []).forEach(p => {
+                    if (!p.owner) p.owner = state.user.fullName;
+                });
                 state.projects = (state.projects || []).filter(p => p.owner && p.owner === state.user.fullName);
                 if (state.projects && state.projects.length > 0) {
                     if (!state.projects.find(p => p.id === state.activeProjectId)) {
                         state.activeProjectId = state.projects[0].id;
                     }
                     document.getElementById('setup-page').classList.add('hidden');
+                    // Automatically sync active project to Google Sheets
+                    const activeProj = getActiveProject();
+                    if (activeProj) CloudSync.syncProject(activeProj);
                 } else {
                     showSetup();
                 }
@@ -7739,7 +7776,12 @@
                 req.onerror = () => location.reload();
             } else {
                 const active = getActiveProject();
+                if (!active) {
+                    resetOverlay.classList.add('hidden');
+                    return;
+                }
                 const idToDelete = active.id;
+                const deletedName = active.name;
 
                 // 1. Scrub IndexedDB for this project
                 const tx = DB.db.transaction(DB.storeName, 'readwrite');
@@ -7753,17 +7795,31 @@
                 // 2. Remove from state
                 state.projects = state.projects.filter(p => p.id !== idToDelete);
 
-                // 3. Update active project
+                // 3. Close reset overlay & clear input
+                resetOverlay.classList.add('hidden');
+                resetInput.value = "";
+                confirmResetBtn.disabled = true;
+                confirmResetBtn.style.opacity = "0.5";
+
+                // 4. Update active project and show confirmation feedback
                 if (state.projects.length > 0) {
                     state.activeProjectId = state.projects[0].id;
-                    resetOverlay.classList.add('hidden');
                     saveState();
                     updateUI();
                     document.querySelector('.nav-item[data-target="dashboard"]').click();
+                    SoundEngine.playClose();
+                    showAlert('🗑️ Project Deleted', `Project "${deletedName}" has been successfully deleted along with its journal records.`);
                 } else {
-                    localStorage.removeItem(STORAGE_KEY);
-                    location.reload();
+                    state.activeProjectId = null;
+                    saveState();
+                    updateUI();
+                    showSetup();
+                    SoundEngine.playClose();
+                    showAlert('🗑️ Project Deleted', `Project "${deletedName}" has been successfully deleted. Create a new project to continue.`);
                 }
+
+                // 5. Cloud sync deletion
+                CloudSync.deleteProject(idToDelete);
             }
         };
 
@@ -8594,10 +8650,16 @@
                     };
 
                     // Cleanly assign projects owned by this user
-                    if (res.projects && Array.isArray(res.projects)) {
+                    if (res.projects && Array.isArray(res.projects) && res.projects.length > 0) {
                         state.projects = res.projects;
                     } else {
+                        // Adopt and claim any existing local projects for this engineer
+                        (state.projects || []).forEach(p => {
+                            if (!p.owner) p.owner = raw;
+                        });
                         state.projects = (state.projects || []).filter(p => p.owner && p.owner === raw);
+                        // Immediately sync them to Google Sheets
+                        state.projects.forEach(p => CloudSync.syncProject(p));
                     }
 
                     if (state.projects.length > 0) {
@@ -8689,17 +8751,27 @@
             try {
                 const res = await CloudSync.executeDirect('fetchUserData', { fullName: state.user.fullName });
                 if (res && res.status === 'success' && res.projects) {
-                    res.projects.forEach(sp => {
-                        const existing = state.projects.find(p => String(p.id) === String(sp.id));
-                        if (existing) {
-                            existing.progress = sp.progress;
-                            existing.points = sp.points;
-                            existing.streak = sp.streak;
-                        }
-                    });
-                    saveState();
-                    updateUI();
-                    showAlert('✅ Telemetry Updated', `Synchronized ${res.projects.length} project(s) with Google Sheets.`);
+                    if (res.projects.length > 0) {
+                        res.projects.forEach(sp => {
+                            const existing = state.projects.find(p => String(p.id) === String(sp.id));
+                            if (existing) {
+                                existing.progress = sp.progress;
+                                existing.points = sp.points;
+                                existing.streak = sp.streak;
+                            } else {
+                                state.projects.push(sp);
+                            }
+                        });
+                        saveState();
+                        updateUI();
+                        showAlert('✅ Telemetry Updated', `Synchronized ${res.projects.length} project(s) with Google Sheets.`);
+                    } else if (state.projects && state.projects.length > 0) {
+                        // Push local projects to Google Sheets
+                        state.projects.forEach(p => CloudSync.syncProject(p));
+                        showAlert('✅ Telemetry Updated', `Uploaded ${state.projects.length} project(s) to Google Sheets.`);
+                    } else {
+                        showAlert('Cloud Notice', 'Telemetry verified. No remote changes detected.');
+                    }
                 } else {
                     showAlert('Cloud Notice', 'Telemetry verified. No remote changes detected.');
                 }
