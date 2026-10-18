@@ -1,12 +1,12 @@
 <!--
-  Version: 2.1.2
-  Date: 2026-10-18 8:15 AM
+  Version: 2.2.1
+  Date: 2026-10-18 10:25 AM
   Change Log:
+  - 2026-10-18: Feature: Encrypted locked relics in Relic Vault to keep details, icons, and lore invisible until unlocked [New Feature]
+  - 2026-10-18: Feature: Added rotating Weekly Tactical Bounty pool and expanded Relic Vault achievements to 14 relics [New Feature]
   - 2026-10-18: Fix: Enforced strict once-per-day logging with dedicated Today's Dispatch Complete card to prevent score abuse [Fix]
   - 2026-10-17: Fix: Unblocked daily log typing, enabled updating today's log, and fixed clipped companion speech bubble [Fix]
   - 2026-10-17: Feature: Activity log chips, time-lapse player, native share sheet, mystery crates, and companion sync meter [New Feature]
-  - 2026-10-17: Fix: Real-time autoSaveLogDraft wired to inputs and steppers, tab restore enabled, and floating XP visual polish [Fix]
-  - 2026-10-17: Feature: Major engagement overhaul: voice dictation, draft auto-save, streak freeze shields, active blocker follow-ups, weekly quests, critical XP boosts, and Polaroid Wall gallery [New Feature]
 -->
 
 
@@ -3539,8 +3539,8 @@
 
     <!-- Relic Vault Modal -->
     <section id="relic-vault-modal" class="page hidden"
-        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 3000; background: var(--primary-bg); padding: 24px; box-sizing: border-box;">
-        <header style="margin-bottom: 30px;">
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 3000; background: var(--primary-bg); padding: 24px; box-sizing: border-box; overflow-y: auto; padding-bottom: 90px;">
+        <header style="margin-bottom: 24px;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <div>
                     <h1 style="font-size: 1.5rem; font-weight: 900;">Relic Vault</h1>
@@ -3554,10 +3554,10 @@
             </div>
         </header>
         <div class="relic-grid" id="relic-grid"
-            style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)); gap: 12px;">
         </div>
         <div id="relic-detail"
-            style="margin-top: 40px; padding: 24px; background: rgba(255,255,255,0.03); border-radius: 24px; text-align: center;">
+            style="margin-top: 30px; padding: 22px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 20px; text-align: center;">
             <p style="color: var(--text-secondary); font-size: 0.85rem;">Tap a relic to explore its legacy.</p>
         </div>
     </section>
@@ -3673,13 +3673,132 @@
         };
 
         const RELICS = [
-            { id: 'night-owl', title: 'The Night Owl', desc: 'Log work between 12 AM and 4 AM', icon: 'fa-moon', color: '#a29bfe' },
-            { id: 'streak-king', title: 'Streak King', desc: 'Reach a 10-day engineering streak', icon: 'fa-crown', color: '#fdcb6e' },
-            { id: 'bom-architect', title: 'BOM Architect', desc: 'Add 15+ items to your project inventory', icon: 'fa-boxes', color: '#55efc4' },
-            { id: 'speed-demon', title: 'Speed Demon', desc: 'Complete Objective 1 within 5 days', icon: 'fa-bolt', color: '#fab1a0' },
-            { id: 'perfectionist', title: 'Perfectionist', desc: 'Achieve a 100% Peer Review score', icon: 'fa-star', color: '#ffeaa7' },
-            { id: 'singularity-core', title: 'Singularity Core', desc: 'Conquer 100% of a complete project directive', icon: 'fa-atom', color: '#ffd700' }
+            // Core Legacy
+            { id: 'night-owl', title: 'The Night Owl', desc: 'Submit engineering logs late at night between 12:00 AM and 4:00 AM', icon: 'fa-moon', color: '#a29bfe' },
+            { id: 'early-bird', title: 'Early Bird', desc: 'Submit a disciplined daily log in the morning between 5:00 AM and 9:00 AM', icon: 'fa-sun', color: '#fde047' },
+            { id: 'streak-king', title: 'Streak King', desc: 'Build an uninterrupted 10-day engineering momentum streak', icon: 'fa-crown', color: '#fdcb6e' },
+            { id: 'bom-architect', title: 'BOM Architect', desc: 'Catalog 15 or more hardware components in your project inventory (BOM)', icon: 'fa-boxes', color: '#55efc4' },
+            { id: 'speed-demon', title: 'Speed Demon', desc: 'Reach Milestone 1 (30% progress) in 5 days or fewer', icon: 'fa-bolt', color: '#fab1a0' },
+            { id: 'perfectionist', title: 'Perfectionist', desc: 'Achieve a flawless 100% score on a Milestone Peer Review rubric', icon: 'fa-star', color: '#ffeaa7' },
+            { id: 'singularity-core', title: 'Singularity Core', desc: 'Conquer and complete 100% of an entire project directive', icon: 'fa-atom', color: '#ffd700' },
+            
+            // Focus & Endurance
+            { id: 'chronos-engine', title: 'Chronos Engine', desc: 'Accumulate 10.0+ active focus session hours recorded in your project logs', icon: 'fa-hourglass-start', color: '#38bdf8' },
+            
+            // Resilience & Recovery
+            { id: 'blocker-destroyer', title: 'Blocker Destroyer', desc: 'Document, confront, and successfully resolve 3 technical obstacles', icon: 'fa-shield-virus', color: '#f87171' },
+            { id: 'cryo-survivor', title: 'Cryo Survivor', desc: 'Acquire or use a Streak Freeze Shield to protect project momentum', icon: 'fa-snowflake', color: '#7dd3fc' },
+            { id: 'phoenix-protocol', title: 'Phoenix Protocol', desc: 'Activate a Comeback Bonus after returning to the bench from an interruption', icon: 'fa-fire-alt', color: '#fb923c' },
+            
+            // Craftsmanship & Documentation
+            { id: 'master-chronicler', title: 'Master Chronicler', desc: 'Archive 10 or more visual photo dispatches in your Polaroid Wall', icon: 'fa-camera-retro', color: '#fbbf24' },
+            { id: 'technical-scribe', title: 'Technical Scribe', desc: 'Write an exceptionally thorough work accomplishment entry (150+ characters)', icon: 'fa-feather-alt', color: '#c084fc' },
+            { id: 'timelapse-director', title: 'Time-Lapse Director', desc: 'Assemble and view a playback of your project build evolution', icon: 'fa-film', color: '#f472b6' }
         ];
+
+        const WEEKLY_BOUNTY_POOL = {
+            // Category 1: Consistency & Rhythm
+            consistency: [
+                {
+                    id: 'q_logs_4',
+                    title: 'Field Discipline',
+                    desc: 'Log engineering progress on 4 different days this week',
+                    target: 4,
+                    unit: 'd',
+                    xp: 150,
+                    icon: 'fa-calendar-check',
+                    key: 'logs'
+                },
+                {
+                    id: 'q_weekend',
+                    title: 'Weekend Warrior',
+                    desc: 'Advance your project with at least 1 log on Saturday or Sunday',
+                    target: 1,
+                    unit: 'd',
+                    xp: 125,
+                    icon: 'fa-campground',
+                    key: 'weekend_logs'
+                },
+                {
+                    id: 'q_early_shift',
+                    title: 'Early Shift',
+                    desc: 'Submit a daily log in the morning before 12:00 PM',
+                    target: 1,
+                    unit: 'd',
+                    xp: 100,
+                    icon: 'fa-sun',
+                    key: 'early_logs'
+                }
+            ],
+            // Category 2: Deep Focus & High Output
+            effort: [
+                {
+                    id: 'q_hours_3',
+                    title: 'Deep Engineering',
+                    desc: 'Log 3.0+ active focus session hours across the week',
+                    target: 3.0,
+                    unit: 'h',
+                    xp: 120,
+                    icon: 'fa-hourglass-half',
+                    isFloat: true,
+                    key: 'hours'
+                },
+                {
+                    id: 'q_milestones_4',
+                    title: 'Milestone Surge',
+                    desc: 'Accumulate 4+ completed milestone tasks in your logs',
+                    target: 4,
+                    unit: ' tasks',
+                    xp: 130,
+                    icon: 'fa-tasks',
+                    key: 'milestones'
+                },
+                {
+                    id: 'q_focus_clock',
+                    title: 'Focus Sprint',
+                    desc: 'Track at least 2.0 hours using the Focus Clock timer',
+                    target: 2.0,
+                    unit: 'h',
+                    xp: 110,
+                    icon: 'fa-stopwatch',
+                    isFloat: true,
+                    key: 'timer_hours'
+                }
+            ],
+            // Category 3: Craftsmanship, Resilience & Exploration
+            craft: [
+                {
+                    id: 'q_blocker_1',
+                    title: 'Obstacle Breaker',
+                    desc: 'Record or resolve a technical blocker',
+                    target: 1,
+                    unit: '',
+                    xp: 100,
+                    icon: 'fa-shield-virus',
+                    key: 'blockers'
+                },
+                {
+                    id: 'q_photos_3',
+                    title: 'Visual Chronicler',
+                    desc: 'Attach visual photographic evidence to 3 daily logs',
+                    target: 3,
+                    unit: ' photos',
+                    xp: 125,
+                    icon: 'fa-camera-retro',
+                    key: 'photos'
+                },
+                {
+                    id: 'q_vault_view',
+                    title: 'Vault Seeker',
+                    desc: 'Open and inspect your unlocked relics in the Relic Vault',
+                    target: 1,
+                    unit: '',
+                    xp: 80,
+                    icon: 'fa-trophy',
+                    key: 'vault_views'
+                }
+            ]
+        };
         const THEMES = {
             default: { name: 'Titanium Dark', primary: '#000000', secondary: '#1c1c1e', accent: '#beff33' },
             neon: { name: 'Cyber Neon', primary: '#000b1a', secondary: '#001a33', accent: '#00f2ff', price: 5000 },
@@ -4465,6 +4584,7 @@
             document.getElementById('hours-worked').value = finalHrs;
             if (document.getElementById('hours-display')) document.getElementById('hours-display').innerText = finalHrs.toFixed(1);
             updateProgressPreview();
+            recordWeeklyQuestProgress('timer_hours', finalHrs);
             autoSaveLogDraft();
             SoundEngine.playSuccess();
             showAlert('⏱️ Focus Time Imported', `Imported ${finalHrs.toFixed(1)} hours of active focus sessions into your daily log!`);
@@ -4488,6 +4608,7 @@
                     yesterday.setDate(yesterday.getDate() - 1);
                     active.lastLogDate = yesterday.toISOString();
                     saveState();
+                    unlockRelic('cryo-survivor');
                     showAlert('🛡️ Streak Freeze Activated!', `A Streak Freeze Shield was consumed to protect your ${active.streak}-day streak! You have ${state.streakFreezes} shield(s) remaining.`);
                     SoundEngine.playSuccess();
                     return;
@@ -4506,6 +4627,7 @@
             if ((state.globalXP || 0) < 250) return showAlert('⚡ Insufficient XP', 'You need 250 XP to acquire a Streak Freeze Shield. Keep logging to earn XP!');
             state.globalXP -= 250;
             state.streakFreezes = (state.streakFreezes || 0) + 1;
+            unlockRelic('cryo-survivor');
             saveState();
             SoundEngine.playSuccess();
             openMarket();
@@ -4538,8 +4660,8 @@
             lastLog.blockerResolved = true;
 
             state.globalXP = (state.globalXP || 0) + 50;
-            initWeeklyQuests();
-            if (state.quests) state.quests.blockers = (state.quests.blockers || 0) + 1;
+            recordWeeklyQuestProgress('blockers', 1);
+            checkRelicUnlocks(null, active);
 
             const doneEl = document.getElementById('done-today');
             if (doneEl) {
@@ -4580,17 +4702,50 @@
             return `${d.getFullYear()}-W${weekNum}`;
         }
 
+        function getActiveWeeklyBounties() {
+            const curWeek = getWeekIdentifier();
+            const parts = curWeek.split('-W');
+            const weekNum = parseInt(parts[1] || '1', 10);
+
+            // Select 1 bounty from each category for rotation
+            const cList = WEEKLY_BOUNTY_POOL.consistency;
+            const eList = WEEKLY_BOUNTY_POOL.effort;
+            const crList = WEEKLY_BOUNTY_POOL.craft;
+
+            const q1 = cList[weekNum % cList.length];
+            const q2 = eList[(weekNum + 1) % eList.length];
+            const q3 = crList[(weekNum + 2) % crList.length];
+
+            return [q1, q2, q3];
+        }
+
         function initWeeklyQuests() {
             const curWeek = getWeekIdentifier();
             if (!state.quests || state.quests.weekId !== curWeek) {
                 state.quests = {
                     weekId: curWeek,
-                    logs: 0,
-                    hours: 0,
-                    blockers: 0,
+                    stats: {},
                     claimed: {}
                 };
             }
+            if (!state.quests.stats) {
+                state.quests.stats = {
+                    logs: state.quests.logs || 0,
+                    hours: state.quests.hours || 0,
+                    blockers: state.quests.blockers || 0
+                };
+            }
+            if (!state.quests.claimed) state.quests.claimed = {};
+        }
+
+        function recordWeeklyQuestProgress(key, amt) {
+            initWeeklyQuests();
+            if (!state.quests.stats) state.quests.stats = {};
+            state.quests.stats[key] = (state.quests.stats[key] || 0) + amt;
+            if (key === 'logs') state.quests.logs = state.quests.stats[key];
+            if (key === 'hours') state.quests.hours = state.quests.stats[key];
+            if (key === 'blockers') state.quests.blockers = state.quests.stats[key];
+            saveState();
         }
 
         function renderWeeklyQuests() {
@@ -4605,46 +4760,16 @@
             if (timerEl) timerEl.innerText = `RESETS IN ${daysUntilReset}D`;
 
             const q = state.quests;
-            const questsDef = [
-                {
-                    id: 'q_logs',
-                    title: 'Field Discipline',
-                    desc: 'Log progress on 4 different days this week',
-                    current: Math.min(4, q.logs || 0),
-                    target: 4,
-                    unit: 'd',
-                    xp: 150,
-                    icon: 'fa-calendar-check'
-                },
-                {
-                    id: 'q_hours',
-                    title: 'Deep Engineering',
-                    desc: 'Log 3.0+ active focus session hours',
-                    current: Math.min(3.0, (q.hours || 0)),
-                    target: 3.0,
-                    unit: 'h',
-                    xp: 100,
-                    icon: 'fa-hourglass-half',
-                    isFloat: true
-                },
-                {
-                    id: 'q_blocker',
-                    title: 'Obstacle Breaker',
-                    desc: 'Record or resolve 1 technical blocker',
-                    current: Math.min(1, q.blockers || 0),
-                    target: 1,
-                    unit: '',
-                    xp: 100,
-                    icon: 'fa-shield-virus'
-                }
-            ];
+            const activeQuests = getActiveWeeklyBounties();
 
             container.innerHTML = '';
-            questsDef.forEach(qd => {
-                const isCompleted = qd.current >= qd.target;
+            activeQuests.forEach(qd => {
+                const curVal = (q.stats && q.stats[qd.key]) || 0;
+                const current = Math.min(qd.target, curVal);
+                const isCompleted = current >= qd.target;
                 const isClaimed = Boolean(q.claimed && q.claimed[qd.id]);
-                const pct = Math.min(100, Math.round((qd.current / qd.target) * 100));
-                const curDisp = qd.isFloat ? qd.current.toFixed(1) : qd.current;
+                const pct = Math.min(100, Math.round((current / qd.target) * 100));
+                const curDisp = qd.isFloat ? current.toFixed(1) : current;
                 const targetDisp = qd.isFloat ? qd.target.toFixed(1) : qd.target;
 
                 const row = document.createElement('div');
@@ -4871,6 +4996,7 @@
             }
             const modal = document.getElementById('timelapse-modal');
             if (!modal) return;
+            unlockRelic('timelapse-director');
             timelapseIndex = 0;
             isTimelapsePlaying = true;
             modal.classList.remove('hidden');
@@ -5787,6 +5913,7 @@
                 advisorBox.classList.remove('stage-wireframe', 'stage-solid', 'stage-power', 'stage-battle', 'stage-ascended');
                 if (progress >= 100 || active.completed) {
                     advisorBox.classList.add('stage-solid', 'stage-power', 'stage-battle', 'stage-ascended');
+                    unlockRelic('singularity-core');
                 } else if (progress >= 80) {
                     advisorBox.classList.add('stage-solid', 'stage-power', 'stage-battle');
                 } else if (progress >= 60) {
@@ -6053,16 +6180,63 @@
             const grid = document.getElementById('relic-grid');
             if (!modal || !grid) return;
 
+            // Advance Weekly Bounty for inspecting the Vault
+            recordWeeklyQuestProgress('vault_views', 1);
+
             grid.innerHTML = "";
-            state.relics.forEach((r, idx) => {
+            const unlockedList = Array.isArray(state.relics) ? state.relics : [];
+            const unlockedCount = RELICS.filter(r => unlockedList.includes(r.id)).length;
+
+            const vaultSubtitle = modal.querySelector('header p');
+            if (vaultSubtitle) {
+                vaultSubtitle.innerHTML = `Global Achievements &bull; <strong style="color:var(--accent-lime);">${unlockedCount} / ${RELICS.length} Unlocked</strong>`;
+            }
+
+            // Reset detail pane to initial state
+            const detailEl = document.getElementById('relic-detail');
+            if (detailEl) {
+                detailEl.innerHTML = `<p style="color: var(--text-secondary); font-size: 0.85rem;"><i class="fas fa-hand-pointer" style="margin-right:6px; color:var(--accent-lime);"></i>Tap a relic to inspect status.</p>`;
+            }
+
+            RELICS.forEach((r) => {
+                const isUnlocked = unlockedList.includes(r.id);
                 const item = document.createElement('div');
-                item.style.cssText = `background: rgba(255,255,255,0.03); border-radius: 16px; padding: 16px; text-align: center; border: 1px solid ${r.unlocked ? 'var(--accent-lime)' : 'rgba(255,255,255,0.05)'}; opacity: ${r.unlocked ? 1 : 0.3};`;
-                item.innerHTML = `<i class="fas ${r.icon}" style="font-size: 1.5rem; color: ${r.unlocked ? 'var(--accent-lime)' : '#666'};"></i>`;
+                item.style.cssText = `background: ${isUnlocked ? 'rgba(190, 255, 51, 0.05)' : 'rgba(255,255,255,0.02)'}; border-radius: 16px; padding: 14px 8px; text-align: center; border: 1px solid ${isUnlocked ? (r.color || 'var(--accent-lime)') : 'rgba(255,255,255,0.06)'}; opacity: ${isUnlocked ? 1 : 0.45}; cursor: pointer; transition: all 0.2s ease;`;
+                item.innerHTML = `
+                    <div style="width:40px; height:40px; border-radius:50%; margin:0 auto 8px; display:flex; align-items:center; justify-content:center; background:${isUnlocked ? 'rgba(190,255,51,0.1)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${isUnlocked ? 'rgba(190,255,51,0.2)' : 'rgba(255,255,255,0.05)'};">
+                        <i class="fas ${isUnlocked ? r.icon : 'fa-lock'}" style="font-size: ${isUnlocked ? '1.35rem' : '1.1rem'}; color: ${isUnlocked ? (r.color || 'var(--accent-lime)') : '#666'};"></i>
+                    </div>
+                    <div style="font-size: 0.68rem; font-weight: 700; color: ${isUnlocked ? '#fff' : '#666'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: ${isUnlocked ? 'normal' : '1px'};">
+                        ${isUnlocked ? r.title : '???'}
+                    </div>
+                `;
                 item.onclick = () => {
-                    document.getElementById('relic-detail').innerHTML = `
-                        <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: ${r.unlocked ? 'var(--accent-lime)' : 'inherit'}">${r.name}</h3>
-                        <p style="font-size: 0.8rem; line-height: 1.4; color: var(--text-secondary)">${r.unlocked ? r.desc : 'This relic remains locked in the mists of time...'}</p>
-                    `;
+                    if (isUnlocked) {
+                        detailEl.innerHTML = `
+                            <div style="display:inline-block; padding:10px 14px; background:rgba(255,255,255,0.04); border-radius:14px; margin-bottom:10px; border:1px solid ${r.color || 'var(--accent-lime)'};">
+                                <i class="fas ${r.icon}" style="font-size:2.2rem; color:${r.color || 'var(--accent-lime)'}"></i>
+                            </div>
+                            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: var(--accent-lime);">${r.title}</h3>
+                            <div style="font-size: 0.72rem; color: #10b981; font-weight: 800; text-transform: uppercase; margin-bottom: 10px;">
+                                <i class="fas fa-check-circle"></i> Unlocked (+250 XP Awarded)
+                            </div>
+                            <p style="font-size: 0.82rem; line-height: 1.5; color: var(--text-secondary); max-width: 340px; margin: 0 auto;">${r.desc}</p>
+                        `;
+                    } else {
+                        detailEl.innerHTML = `
+                            <div style="display:inline-block; padding:10px 14px; background:rgba(255,255,255,0.02); border-radius:14px; margin-bottom:10px; border:1px dashed rgba(255,255,255,0.15);">
+                                <i class="fas fa-lock" style="font-size:2.2rem; color:#666;"></i>
+                            </div>
+                            <h3 style="font-size: 1.15rem; margin-bottom: 6px; color: #888; letter-spacing: 2px;">???</h3>
+                            <div style="font-size: 0.72rem; color: #f59e0b; font-weight: 800; text-transform: uppercase; margin-bottom: 10px;">
+                                <i class="fas fa-user-secret"></i> Classified Archive
+                            </div>
+                            <p style="font-size: 0.82rem; line-height: 1.5; color: #777; max-width: 320px; margin: 0 auto; font-style: italic;">
+                                Relic details and criteria are encrypted until unlocked in the field. Continue making daily progress to reveal this discovery.
+                            </p>
+                        `;
+                    }
+                    SoundEngine.playSelect();
                 };
                 grid.appendChild(item);
             });
@@ -6072,23 +6246,59 @@
         }
 
         function checkRelicUnlocks(journal, active) {
-            const now = new Date(); const currentHour = now.getHours();
+            if (!active) return;
+            const now = new Date(); 
+            const currentHour = now.getHours();
+
+            // 1. The Night Owl: 12 AM - 4 AM
             if (currentHour >= 0 && currentHour <= 4) unlockRelic('night-owl');
+
+            // 2. Early Bird: 5 AM - 9 AM
+            if (currentHour >= 5 && currentHour <= 9) unlockRelic('early-bird');
+
+            // 3. Streak King: 10-day streak
             if (active.streak >= 10) unlockRelic('streak-king');
+
+            // 4. BOM Architect: 15+ inventory items
             if (active.inventory && active.inventory.length >= 15) unlockRelic('bom-architect');
+
+            // 5. Speed Demon: 30% progress within 5 days
             const projectDay = getProjectDay();
             const goals = getProjectGoals(active);
             const speedLimit = Math.max(2, Math.round(goals[30].targetDay * 0.5));
             if (active.progress >= 30 && projectDay <= speedLimit) unlockRelic('speed-demon');
+
+            // 6. Chronos Engine: 10.0+ total focus hours
+            const totalHours = (active.history || []).reduce((sum, h) => sum + (h.journal && h.journal.hours ? parseFloat(h.journal.hours) : 0), 0);
+            if (totalHours >= 10.0) unlockRelic('chronos-engine');
+
+            // 7. Blocker Destroyer: 3+ resolved blockers
+            const resolvedBlockers = (active.history || []).filter(h => h.blockerResolved).length;
+            if (resolvedBlockers >= 3) unlockRelic('blocker-destroyer');
+
+            // 8. Master Chronicler: 10+ visual photo dispatches
+            if ((active.history || []).length >= 10) unlockRelic('master-chronicler');
+
+            // 9. Technical Scribe: 150+ chars entry
+            if (journal && journal.done && journal.done.length >= 150) unlockRelic('technical-scribe');
+
+            // 10. The Polymath: 3+ active engineering projects
+            if (state.projects && state.projects.length >= 3) unlockRelic('the-polymath');
         }
 
         function unlockRelic(id) {
             if (!state.relics) state.relics = [];
             if (state.relics.includes(id)) return;
             state.relics.push(id);
+            state.globalXP = (state.globalXP || 0) + 250;
             const relic = RELICS.find(r => r.id === id);
-            if (relic) showAchievement(`RELIC EARNED: ${relic.title}`, 250);
+            if (relic) {
+                showAchievement(`RELIC EARNED: ${relic.title}`, 250);
+                SoundEngine.playLevelUp();
+                showFloatingXP(250, window.innerWidth / 2, window.innerHeight / 2);
+            }
             saveState();
+            updateUI();
         }
 
         let timerInterval;
@@ -6406,6 +6616,9 @@
                 active.totalClockSeconds = (active.totalClockSeconds || 0) + elapsed;
                 active.clockStartedAt = null;
 
+                const elapsedHours = elapsed / 3600;
+                if (elapsedHours > 0.02) recordWeeklyQuestProgress('timer_hours', elapsedHours);
+
                 // Auto-fill hours worked in log (capped at 8.0)
                 const hours = Math.min(8.0, (active.clockTotalSeconds / 3600)).toFixed(1);
                 document.getElementById('hours-worked').value = hours;
@@ -6669,6 +6882,7 @@
                 bonusXP += 50;
                 bonusMsg += ' 🔥 COMEBACK +50 XP!';
                 state.comebackBonusEligible = false;
+                unlockRelic('phoenix-protocol');
             }
             const totalAwardedXP = pts + bonusXP;
             state.globalXP = (state.globalXP || 0) + totalAwardedXP;
@@ -6681,12 +6895,26 @@
                 }, 1000);
             }
 
-            // Progress weekly quests
-            initWeeklyQuests();
-            state.quests.logs = (state.quests.logs || 0) + 1;
-            state.quests.hours = (state.quests.hours || 0) + (journal.hours || 0);
+            // Progress rotating weekly tactical bounties
+            recordWeeklyQuestProgress('logs', 1);
+            const submitDayOfWeek = new Date().getDay();
+            if (submitDayOfWeek === 0 || submitDayOfWeek === 6) {
+                recordWeeklyQuestProgress('weekend_logs', 1);
+            }
+            if (new Date().getHours() < 12) {
+                recordWeeklyQuestProgress('early_logs', 1);
+            }
+            if (journal.hours > 0) {
+                recordWeeklyQuestProgress('hours', journal.hours);
+            }
+            if (journal.results > 0) {
+                recordWeeklyQuestProgress('milestones', journal.results);
+            }
+            if (photoSrc && !photoSrc.includes('index.html')) {
+                recordWeeklyQuestProgress('photos', 1);
+            }
             if (journal.stuck && journal.stuck.trim()) {
-                state.quests.blockers = (state.quests.blockers || 0) + 1;
+                recordWeeklyQuestProgress('blockers', 1);
             }
 
             // Reset and save
@@ -6770,6 +6998,7 @@
             document.getElementById('submit-review-btn').onclick = () => {
                 let s = 0; let all = true; RUBRICS[goal.goalId].forEach(c => { if (!ratings[c.id]) all = false; s += (ratings[c.id] || 0) * c.weight; });
                 if (!all) return showAlert('📋 Incomplete Review', 'Please rate all criteria before submitting.'); if (s < 80) { SoundEngine.playError(); return showAlert('❌ Validation Failed', `Score: ${Math.round(s)}%. A minimum of 80% is required. Refine your weakest areas and try again.`); }
+                if (Math.round(s) >= 100) unlockRelic('perfectionist');
                 let bonus = (projectDay <= goal.targetDay) ? 125 : 0;
                 state.globalXP = (state.globalXP || 0) + bonus;
                 active.completedMainGoals.push({ goalId: goal.goalId, rating: s, day: projectDay, bonus });
@@ -7332,6 +7561,7 @@
                 if (!state.unlockedRelics.includes('singularity-core')) {
                     state.unlockedRelics.push('singularity-core');
                 }
+                unlockRelic('singularity-core');
                 
                 saveState();
                 setTimeout(() => {
