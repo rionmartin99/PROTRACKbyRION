@@ -1,11 +1,13 @@
 /**
- * Version: 1.0.0
- * Date: 2026-10-18 2:40 PM
+ * Version: 1.0.2
+ * Date: 2026-10-18 10:25 PM
  * Change Log:
- * - 2026-10-18: Feature: Progressive Web App Service Worker with app shell pre-caching and offline support [New Feature]
+ * - 2026-10-18 10:25 PM: Fix: Bypass Google Drive and Google Usercontent domains from SW caching, bump cache to v2.6.3 [Fix]
+ * - 2026-10-18 10:10 PM: Fix: Bump cache name to v2.6.2 to force mobile cache refresh and asset invalidation [Fix]
+ * - 2026-10-18 2:40 PM: Feature: Progressive Web App Service Worker with app shell pre-caching and offline support [New Feature]
  */
 
-const CACHE_NAME = 'protrack-v2.3.0';
+const CACHE_NAME = 'protrack-v2.6.3';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -46,8 +48,14 @@ self.addEventListener('fetch', (event) => {
     const request = event.request;
     const url = new URL(request.url);
 
-    // Bypass Google Apps Script endpoints and external API POST calls completely
-    if (request.method !== 'GET' || url.hostname.includes('script.google.com') || url.hostname.includes('googleusercontent.com')) {
+    // Bypass Google Apps Script, Google Drive, Google User Content, and non-GET requests completely
+    if (
+        request.method !== 'GET' ||
+        url.hostname.includes('script.google.com') ||
+        url.hostname.includes('drive.google.com') ||
+        url.hostname.includes('googleusercontent.com') ||
+        url.hostname.includes('gstatic.com')
+    ) {
         return;
     }
 
