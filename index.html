@@ -1,12 +1,12 @@
 <!--
-  Version: 2.5.0
-  Date: 2026-10-18 6:20 PM
+  Version: 2.5.1
+  Date: 2026-10-18 6:25 PM
   Change Log:
+  - 2026-10-18: Fix: Isolate active project list to authenticated engineer and purge unowned legacy projects [Fix]
   - 2026-10-18: Feature: R.I.O.N. avatar identity onboarding, uppercase auto-format, server-authoritative score synchronization, and multi-device profile restore [New Feature]
   - 2026-10-18: Fix: Prevent calendar today styling from wiping photo background and center preview on image [Fix]
   - 2026-10-18: Fix: Automatically close Polaroid Memory Wall overlay when launching Time-Lapse flipbook [Fix]
   - 2026-10-18: Fix: Removed countdown display from calendar polaroid preview while retaining quiet 6s auto-close [Fix]
-  - 2026-10-18: Feature: Calendar polaroid overlay preview with close button and 6-second auto-close timer [New Feature]
 -->
 
 
@@ -4898,7 +4898,12 @@
                 showRionAuth();
             } else {
                 updateEngineerHeader();
+                // Strictly isolate state.projects to current authenticated user
+                state.projects = (state.projects || []).filter(p => p.owner && p.owner === state.user.fullName);
                 if (state.projects && state.projects.length > 0) {
+                    if (!state.projects.find(p => p.id === state.activeProjectId)) {
+                        state.activeProjectId = state.projects[0].id;
+                    }
                     document.getElementById('setup-page').classList.add('hidden');
                 } else {
                     showSetup();
@@ -5818,7 +5823,8 @@
                     streak: 0,
                     completedMainGoals: [],
                     clockStartedAt: null,
-                    clockTotalSeconds: 0
+                    clockTotalSeconds: 0,
+                    owner: (state.user ? state.user.fullName : '')
                 };
                 state.projects.push(newProject);
                 state.activeProjectId = newProject.id;
@@ -8566,39 +8572,17 @@
                         lastName: res.user ? res.user.lastName : lastName
                     };
 
-                    if (res.projects && Array.isArray(res.projects) && res.projects.length > 0) {
-                        res.projects.forEach(sp => {
-                            const existing = state.projects.find(p => String(p.id) === String(sp.id));
-                            if (existing) {
-                                existing.name = sp.name;
-                                existing.description = sp.description;
-                                existing.totalDays = sp.totalDays;
-                                existing.startDate = sp.startDate;
-                                existing.progress = sp.progress;
-                                existing.points = sp.points;
-                                existing.streak = sp.streak;
-                                existing.owner = sp.owner;
-                            } else {
-                                state.projects.push({
-                                    id: sp.id,
-                                    name: sp.name,
-                                    description: sp.description,
-                                    startDate: sp.startDate,
-                                    totalDays: sp.totalDays || 31,
-                                    progress: sp.progress || 0,
-                                    history: [],
-                                    points: sp.points || 0,
-                                    streak: sp.streak || 0,
-                                    completedMainGoals: [],
-                                    clockStartedAt: null,
-                                    clockTotalSeconds: 0,
-                                    owner: sp.owner || raw
-                                });
-                            }
-                        });
-                        if (!state.activeProjectId && state.projects.length > 0) {
-                            state.activeProjectId = state.projects[0].id;
-                        }
+                    // Cleanly assign projects owned by this user
+                    if (res.projects && Array.isArray(res.projects)) {
+                        state.projects = res.projects;
+                    } else {
+                        state.projects = (state.projects || []).filter(p => p.owner && p.owner === raw);
+                    }
+
+                    if (state.projects.length > 0) {
+                        state.activeProjectId = state.projects[0].id;
+                    } else {
+                        state.activeProjectId = null;
                     }
 
                     saveState();
