@@ -1,12 +1,12 @@
 <!--
-  Version: 2.2.2
-  Date: 2026-10-18 10:35 AM
+  Version: 2.3.0
+  Date: 2026-10-18 2:40 PM
   Change Log:
+  - 2026-10-18: Feature: Added Service Worker PWA caching, IndexedDB state offload, hardened Apps Script sync queue, and batched RAF rendering [New Feature]
   - 2026-10-18: Fix: Calendar resets to current date and month on launch, with reliable date formatting and Today button [Fix]
   - 2026-10-18: Feature: Encrypted locked relics in Relic Vault to keep details, icons, and lore invisible until unlocked [New Feature]
   - 2026-10-18: Feature: Added rotating Weekly Tactical Bounty pool and expanded Relic Vault achievements to 14 relics [New Feature]
   - 2026-10-18: Fix: Enforced strict once-per-day logging with dedicated Today's Dispatch Complete card to prevent score abuse [Fix]
-  - 2026-10-17: Fix: Unblocked daily log typing, enabled updating today's log, and fixed clipped companion speech bubble [Fix]
 -->
 
 
@@ -236,6 +236,50 @@
             z-index: 4000;
             display: none;
             animation: pulse 2s infinite;
+        }
+
+        #sync-status-badge {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 5px 12px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            border-radius: 20px;
+            z-index: 4001;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        #sync-status-badge.synced {
+            background: rgba(52, 199, 89, 0.18);
+            border: 1px solid rgba(52, 199, 89, 0.4);
+            color: #34c759;
+        }
+
+        #sync-status-badge.syncing {
+            background: rgba(190, 255, 51, 0.18);
+            border: 1px solid rgba(190, 255, 51, 0.4);
+            color: var(--accent-lime);
+        }
+
+        #sync-status-badge.offline {
+            background: rgba(255, 153, 0, 0.2);
+            border: 1px solid rgba(255, 153, 0, 0.4);
+            color: #ff9900;
+        }
+
+        #sync-status-badge.error {
+            background: rgba(255, 59, 48, 0.2);
+            border: 1px solid rgba(255, 59, 48, 0.4);
+            color: #ff3b30;
         }
 
         @keyframes pulse {
@@ -2713,6 +2757,7 @@
         <section id="dashboard" class="page">
             <header>
                 <div id="offline-indicator">OFFLINE MODE</div>
+                <div id="sync-status-badge" class="synced"><i class="fas fa-check-circle"></i> Synced</div>
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <h1 id="project-name-display">ProTrack</h1>
@@ -3872,41 +3917,243 @@
 
         const DB = {
             name: 'ProTrackDB',
-            version: 1,
-            storeName: 'photos',
+            version: 2,
             db: null,
+            photoCache: new Map(),
             init() {
-                return new Promise((resolve, reject) => {
+                return new Promise((resolve) => {
+                    if (!window.indexedDB) {
+                        console.warn('[DB] IndexedDB not available, using fallback storage.');
+                        resolve();
+                        return;
+                    }
                     const req = indexedDB.open(this.name, this.version);
-                    req.onupgradeneeded = (e) => { e.target.result.createObjectStore(this.storeName); };
-                    req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
-                    req.onerror = (e) => reject(e);
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('photos')) {
+                            db.createObjectStore('photos');
+                        }
+                        if (!db.objectStoreNames.contains('state')) {
+                            db.createObjectStore('state');
+                        }
+                        if (!db.objectStoreNames.contains('historyLogs')) {
+                            const logStore = db.createObjectStore('historyLogs', { keyPath: 'id' });
+                            logStore.createIndex('projectId', 'projectId', { unique: false });
+                            logStore.createIndex('localDate', 'localDate', { unique: false });
+                        }
+                        if (!db.objectStoreNames.contains('syncQueue')) {
+                            db.createObjectStore('syncQueue', { keyPath: 'id' });
+                        }
+                    };
+                    req.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve();
+                    };
+                    req.onerror = (e) => {
+                        console.warn('[DB] IndexedDB open error:', e);
+                        resolve();
+                    };
                 });
             },
             save(day, blob) {
-                return new Promise((resolve) => {
-                    const tx = this.db.transaction(this.storeName, 'readwrite');
-                    tx.objectStore(this.storeName).put(blob, day.toString());
-                    tx.oncomplete = () => resolve();
-                });
+                this.photoCache.set(day.toString(), blob);
+                return this.put('photos', day.toString(), blob);
             },
             get(day) {
+                const k = day.toString();
+                if (this.photoCache.has(k)) {
+                    return Promise.resolve(this.photoCache.get(k));
+                }
+                return this.getVal('photos', k).then(val => {
+                    if (val) this.photoCache.set(k, val);
+                    return val;
+                });
+            },
+            put(storeName, key, val) {
                 return new Promise((resolve) => {
-                    const tx = this.db.transaction(this.storeName, 'readonly');
-                    const req = tx.objectStore(this.storeName).get(day.toString());
-                    req.onsuccess = () => resolve(req.result);
+                    if (!this.db) { resolve(); return; }
+                    try {
+                        const tx = this.db.transaction(storeName, 'readwrite');
+                        if (key !== undefined && key !== null) {
+                            tx.objectStore(storeName).put(val, key);
+                        } else {
+                            tx.objectStore(storeName).put(val);
+                        }
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => resolve();
+                    } catch(e) { resolve(); }
+                });
+            },
+            getVal(storeName, key) {
+                return new Promise((resolve) => {
+                    if (!this.db) { resolve(null); return; }
+                    try {
+                        const tx = this.db.transaction(storeName, 'readonly');
+                        const req = tx.objectStore(storeName).get(key);
+                        req.onsuccess = () => resolve(req.result || null);
+                        req.onerror = () => resolve(null);
+                    } catch(e) { resolve(null); }
+                });
+            },
+            delete(storeName, key) {
+                return new Promise((resolve) => {
+                    if (!this.db) { resolve(); return; }
+                    try {
+                        const tx = this.db.transaction(storeName, 'readwrite');
+                        tx.objectStore(storeName).delete(key);
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => resolve();
+                    } catch(e) { resolve(); }
+                });
+            },
+            getAll(storeName) {
+                return new Promise((resolve) => {
+                    if (!this.db) { resolve([]); return; }
+                    try {
+                        const tx = this.db.transaction(storeName, 'readonly');
+                        const req = tx.objectStore(storeName).getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => resolve([]);
+                    } catch(e) { resolve([]); }
                 });
             }
         };
+
+        const SyncQueueManager = {
+            isProcessing: false,
+            retryTimer: null,
+            async enqueue(action, data) {
+                const item = {
+                    id: 'sq_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                    action,
+                    data,
+                    retries: 0,
+                    addedAt: Date.now()
+                };
+                await DB.put('syncQueue', item.id, item);
+                this.updateIndicator();
+                this.processQueue();
+                return item.id;
+            },
+            async getPendingItems() {
+                return await DB.getAll('syncQueue');
+            },
+            updateIndicator() {
+                const badge = document.getElementById('sync-status-badge');
+                if (!badge) return;
+                const isOnline = navigator.onLine;
+
+                this.getPendingItems().then(items => {
+                    const count = items ? items.length : 0;
+                    badge.classList.remove('synced', 'syncing', 'offline', 'error');
+
+                    if (!isOnline) {
+                        badge.classList.add('offline');
+                        badge.innerHTML = `<i class="fas fa-wifi-slash"></i> Offline ${count > 0 ? '(' + count + ')' : ''}`;
+                        badge.style.display = 'flex';
+                    } else if (this.isProcessing) {
+                        badge.classList.add('syncing');
+                        badge.innerHTML = `<i class="fas fa-sync fa-spin"></i> Syncing ${count > 0 ? '(' + count + ')' : ''}...`;
+                        badge.style.display = 'flex';
+                    } else if (count > 0) {
+                        badge.classList.add('syncing');
+                        badge.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> Queued (${count})`;
+                        badge.style.display = 'flex';
+                    } else {
+                        badge.classList.add('synced');
+                        badge.innerHTML = `<i class="fas fa-check-circle"></i> Synced`;
+                        setTimeout(() => {
+                            if (!this.isProcessing && (!badge.classList.contains('offline') && !badge.classList.contains('syncing'))) {
+                                badge.style.display = 'none';
+                            }
+                        }, 2500);
+                    }
+                });
+            },
+            async processQueue() {
+                if (this.isProcessing) return;
+                if (!navigator.onLine) {
+                    this.updateIndicator();
+                    return;
+                }
+
+                const items = await this.getPendingItems();
+                if (!items || items.length === 0) {
+                    this.isProcessing = false;
+                    this.updateIndicator();
+                    return;
+                }
+
+                this.isProcessing = true;
+                this.updateIndicator();
+
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    try {
+                        const res = await CloudSync.executeDirect(item.action, item.data);
+                        if (res && res.status === 'rejected') {
+                            console.warn('[SyncQueue] Server rejected dispatch:', res);
+                            await DB.delete('syncQueue', item.id);
+                            if (res.reason === 'ALREADY_LOGGED_TODAY') {
+                                showAlert('🔒 Server Sync Notice', res.message || 'Today\'s dispatch is already recorded on the server.');
+                            }
+                        } else if (res && (res.status === 'success' || res.status === 'ignored')) {
+                            await DB.delete('syncQueue', item.id);
+                        } else {
+                            item.retries = (item.retries || 0) + 1;
+                            if (item.retries >= 5) {
+                                console.warn('[SyncQueue] Exceeded max retries:', item);
+                                await DB.delete('syncQueue', item.id);
+                            } else {
+                                await DB.put('syncQueue', item.id, item);
+                                this.scheduleRetry(Math.pow(2, item.retries) * 1000);
+                                break;
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('[SyncQueue] Worker error:', err);
+                        item.retries = (item.retries || 0) + 1;
+                        await DB.put('syncQueue', item.id, item);
+                        this.scheduleRetry(Math.pow(2, item.retries) * 1000);
+                        break;
+                    }
+                }
+
+                this.isProcessing = false;
+                this.updateIndicator();
+            },
+            scheduleRetry(delayMs) {
+                if (this.retryTimer) clearTimeout(this.retryTimer);
+                this.retryTimer = setTimeout(() => {
+                    this.processQueue();
+                }, Math.min(delayMs || 3000, 30000));
+            }
+        };
+
+        window.addEventListener('online', () => {
+            const offlineBanner = document.getElementById('offline-indicator');
+            if (offlineBanner) offlineBanner.style.display = 'none';
+            SyncQueueManager.updateIndicator();
+            SyncQueueManager.processQueue();
+        });
+
+        window.addEventListener('offline', () => {
+            const offlineBanner = document.getElementById('offline-indicator');
+            if (offlineBanner) offlineBanner.style.display = 'block';
+            SyncQueueManager.updateIndicator();
+        });
+
+        let projectSyncDebounceTimer = null;
 
         const CloudSync = {
             isGasEnvironment() {
                 return typeof google !== 'undefined' && typeof google.script !== 'undefined' && typeof google.script.run !== 'undefined';
             },
             isConfigured() {
-                return true;
+                const url = (state.gasWebAppUrl || GAS_WEB_APP_URL || '').trim();
+                return this.isGasEnvironment() || (url && url.length > 5);
             },
-            dispatch(action, data) {
+            executeDirect(action, data) {
                 if (!this.isConfigured()) {
                     return Promise.resolve({ status: 'ignored' });
                 }
@@ -3915,7 +4162,7 @@
                 if (this.isGasEnvironment()) {
                     return new Promise((resolve) => {
                         const runner = google.script.run
-                            .withSuccessHandler((res) => resolve(res))
+                            .withSuccessHandler((res) => resolve(res || { status: 'success' }))
                             .withFailureHandler((err) => {
                                 console.warn('[CloudSync] GAS run failed:', err);
                                 resolve({ status: 'error', error: err });
@@ -3931,17 +4178,26 @@
 
                 // Standalone / Local Web App POST fetch
                 const url = (state.gasWebAppUrl || GAS_WEB_APP_URL).trim();
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
+
                 return fetch(url, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action, data })
+                    body: JSON.stringify({ action, data }),
+                    signal: controller.signal
                 }).then(() => {
+                    clearTimeout(timeoutId);
                     return { status: 'success' };
                 }).catch(err => {
+                    clearTimeout(timeoutId);
                     console.warn('[CloudSync] Web App POST failed:', err);
                     return { status: 'error', error: err };
                 });
+            },
+            dispatch(action, data) {
+                return SyncQueueManager.enqueue(action, data);
             },
             syncProject(proj) {
                 if (!proj) return Promise.resolve();
@@ -3955,6 +4211,12 @@
                     totalPoints: state.globalXP || 0,
                     streak: proj.streak || 0
                 });
+            },
+            syncProjectDebounced(proj) {
+                if (projectSyncDebounceTimer) clearTimeout(projectSyncDebounceTimer);
+                projectSyncDebounceTimer = setTimeout(() => {
+                    this.syncProject(proj);
+                }, 600);
             },
             syncLogEntry(logData) {
                 return this.dispatch('logEntry', logData);
@@ -4362,13 +4624,34 @@
                 });
             }
         };
+        let updateUIPending = false;
+        function scheduleUpdateUI() {
+            if (!updateUIPending) {
+                updateUIPending = true;
+                requestAnimationFrame(() => {
+                    updateUIPending = false;
+                    updateUI();
+                });
+            }
+        }
+
         const STORAGE_KEY = 'proTrackState';
         async function loadState() {
             await DB.init();
-            let saved = localStorage.getItem(STORAGE_KEY);
+            let saved = null;
+            // 1. Try loading state from IndexedDB first
+            try {
+                const idbState = await DB.getVal('state', 'appState');
+                if (idbState) saved = JSON.stringify(idbState);
+            } catch (e) {}
+
+            // 2. Fall back to localStorage if IndexedDB had no state (migration / first run)
             if (!saved) {
-                saved = localStorage.getItem('robotTrackState');
-                if (saved) localStorage.setItem(STORAGE_KEY, saved);
+                saved = localStorage.getItem(STORAGE_KEY);
+                if (!saved) {
+                    saved = localStorage.getItem('robotTrackState');
+                    if (saved) localStorage.setItem(STORAGE_KEY, saved);
+                }
             }
 
             if (saved) {
@@ -4439,6 +4722,9 @@
                 } else {
                     showSetup();
                 }
+
+                // Save migration snapshot to IndexedDB
+                DB.put('state', 'appState', state).catch(() => {});
             } else {
                 showSetup();
             }
@@ -4447,14 +4733,25 @@
             initWeeklyQuests();
             restoreLogDraft();
             checkEveningReminderNotification();
+            SyncQueueManager.processQueue();
         }
         function saveState() {
-            // Avoid permanently locking a temporary browsed calendar month into localStorage
+            // Avoid permanently locking a temporary browsed calendar month into storage
             const toSave = { ...state };
             delete toSave.viewMonth;
             delete toSave.viewYear;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-            updateUI();
+
+            // Asynchronous IndexedDB persistence (large data layer)
+            DB.put('state', 'appState', toSave).catch(() => {});
+
+            // Keep lightweight localStorage fallback with quota catch
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+            } catch (e) {
+                console.warn('[Storage] LocalStorage quota exceeded, safely offloaded to IndexedDB.');
+            }
+
+            scheduleUpdateUI();
         }
 
         // ==================== VOICE DICTATION & DRAFTS ====================
@@ -4776,6 +5073,7 @@
             const activeQuests = getActiveWeeklyBounties();
 
             container.innerHTML = '';
+            const frag = document.createDocumentFragment();
             activeQuests.forEach(qd => {
                 const curVal = (q.stats && q.stats[qd.key]) || 0;
                 const current = Math.min(qd.target, curVal);
@@ -4810,8 +5108,9 @@
                         }
                     </div>
                 `;
-                container.appendChild(row);
+                frag.appendChild(row);
             });
+            container.appendChild(frag);
         }
 
         function claimQuest(questId, xp) {
@@ -5490,6 +5789,7 @@
 
             list.innerHTML = "";
             let total = 0;
+            const frag = document.createDocumentFragment();
             active.inventory.forEach((item, idx) => {
                 total += item.cost;
                 const el = document.createElement('div');
@@ -5504,8 +5804,9 @@
                     <button class="btn-icon" onclick="deleteInventoryItem(${idx})" style="background:none; border:none; color:var(--error); opacity:0.6;"><i class="fas fa-trash"></i></button>
                 </div>
             `;
-                list.appendChild(el);
+                frag.appendChild(el);
             });
+            list.appendChild(frag);
             document.getElementById('total-cost-display').innerText = `₱${total.toFixed(2)}`;
         }
 
@@ -6743,30 +7044,67 @@
 
             const active = getActiveProject();
             if (!active) return;
-            const logs = (active.history || []).filter(h => h && h.date).map(h => h.date.split('T')[0]);
-            const milestones = []; if (active && active.startDate) {
-                const start = new Date(active.startDate); const goals = getProjectGoals(active); Object.keys(goals).forEach(p => { if (goals[p].isMain) { const d = new Date(start); d.setDate(start.getDate() + goals[p].targetDay - 1); milestones.push(d.toLocaleDateString('en-CA')); } });
+            const logMap = new Map();
+            (active.history || []).forEach(h => {
+                if (h && h.date) {
+                    const dStr = h.date.split('T')[0];
+                    logMap.set(dStr, h);
+                }
+            });
+
+            const milestones = new Set();
+            const goals = getProjectGoals(active);
+            if (active && active.startDate) {
+                const start = new Date(active.startDate);
+                Object.keys(goals).forEach(p => {
+                    if (goals[p].isMain) {
+                        const d = new Date(start);
+                        d.setDate(start.getDate() + goals[p].targetDay - 1);
+                        milestones.add(d.toLocaleDateString('en-CA'));
+                    }
+                });
             }
             const todayYear = realNow.getFullYear();
             const todayMonth = realNow.getMonth();
             const todayDate = realNow.getDate();
             const todayStr = `${todayYear}-${(todayMonth + 1).toString().padStart(2, '0')}-${todayDate.toString().padStart(2, '0')}`;
 
-            for (let i = 0; i < offset; i++) { const div = document.createElement('div'); div.className = "calendar-box intensity-0"; div.style.visibility = "hidden"; grid.appendChild(div); }
+            const frag = document.createDocumentFragment();
+
+            for (let i = 0; i < offset; i++) {
+                const div = document.createElement('div');
+                div.className = "calendar-box intensity-0";
+                div.style.visibility = "hidden";
+                frag.appendChild(div);
+            }
+
             for (let d = 1; d <= days; d++) {
-                const div = document.createElement('div'); div.className = "calendar-box";
+                const div = document.createElement('div');
+                div.className = "calendar-box";
                 const dateStr = `${vy}-${(vm + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
                 div.innerHTML = `<span>${d}</span>`;
-                if (logs.includes(dateStr)) {
+
+                if (logMap.has(dateStr)) {
                     div.classList.add('has-log');
-                    const logIdx = active.history.findIndex(h => h.date && h.date.split('T')[0] === dateStr);
-                    DB.get(active.id + "_" + active.history[logIdx].day).then(photo => { if (photo) div.style.backgroundImage = `url(${photo})`; });
+                    const log = logMap.get(dateStr);
+                    const photoKey = active.id + "_" + log.day;
+                    if (DB.photoCache.has(photoKey)) {
+                        div.style.backgroundImage = `url(${DB.photoCache.get(photoKey)})`;
+                    } else {
+                        DB.get(photoKey).then(photo => {
+                            if (photo) {
+                                DB.photoCache.set(photoKey, photo);
+                                div.style.backgroundImage = `url(${photo})`;
+                            }
+                        });
+                    }
                     div.onclick = () => viewDayDetails(dateStr, div);
                 }
+
                 if (dateStr === todayStr) div.classList.add('today');
-                if (milestones.includes(dateStr)) {
+
+                if (milestones.has(dateStr)) {
                     div.classList.add('milestone');
-                    const goals = getProjectGoals(active);
                     const mainKey = Object.keys(goals).find(k => {
                         const g = goals[k]; if (!g.isMain) return false;
                         const startDate = new Date(active.startDate);
@@ -6782,8 +7120,9 @@
                         };
                     }
                 }
-                grid.appendChild(div);
+                frag.appendChild(div);
             }
+            grid.appendChild(frag);
         }
         async function viewDayDetails(date, targetDiv) {
             const active = getActiveProject();
@@ -6968,6 +7307,15 @@
             active.lastLogDate = logData.date;
             active.history.push(logData);
             active.clockTotalSeconds = 0;
+
+            // Persist individual record to IndexedDB historyLogs
+            DB.put('historyLogs', active.id + '_' + projectDay, {
+                id: active.id + '_' + projectDay,
+                projectId: active.id,
+                day: projectDay,
+                localDate: logData.localDate,
+                logData: logData
+            }).catch(() => {});
 
             // Clear draft
             localStorage.removeItem('protrack_draft_' + active.id);
@@ -7866,6 +8214,17 @@
             document.getElementById('custom-alert-body').innerText = body;
             const overlay = document.getElementById('custom-alert-overlay');
             overlay.style.display = 'flex';
+        }
+
+        // Register Progressive Web App Service Worker for offline capabilities
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then((reg) => {
+                    console.log('[PWA] Service Worker active:', reg.scope);
+                }).catch((err) => {
+                    console.warn('[PWA] Service Worker registration failed:', err);
+                });
+            });
         }
     </script>
 </body>
