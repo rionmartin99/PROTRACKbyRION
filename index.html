@@ -1,12 +1,12 @@
 <!--
-  Version: 2.4.1
-  Date: 2026-10-18 3:08 PM
+  Version: 2.4.2
+  Date: 2026-10-18 3:16 PM
   Change Log:
+  - 2026-10-18: Fix: Automatically close Polaroid Memory Wall overlay when launching Time-Lapse flipbook [Fix]
   - 2026-10-18: Fix: Removed countdown display from calendar polaroid preview while retaining quiet 6s auto-close [Fix]
   - 2026-10-18: Feature: Calendar polaroid overlay preview with close button and 6-second auto-close timer [New Feature]
   - 2026-10-18: Feature: Added Service Worker PWA caching, IndexedDB state offload, hardened Apps Script sync queue, and batched RAF rendering [New Feature]
   - 2026-10-18: Fix: Calendar resets to current date and month on launch, with reliable date formatting and Today button [Fix]
-  - 2026-10-18: Feature: Encrypted locked relics in Relic Vault to keep details, icons, and lore invisible until unlocked [New Feature]
 -->
 
 
@@ -5308,6 +5308,7 @@
             }
             const modal = document.getElementById('timelapse-modal');
             if (!modal) return;
+            closePolaroidWall();
             unlockRelic('timelapse-director');
             timelapseIndex = 0;
             isTimelapsePlaying = true;
@@ -8210,7 +8211,7 @@
     </div>
 
     <!-- TIMELAPSE MODAL -->
-    <div id="timelapse-modal" class="certificate-modal hidden" style="z-index: 10005;">
+    <div id="timelapse-modal" class="certificate-modal hidden" style="z-index: 100020;">
         <div class="certificate-card" style="max-width: 480px; text-align: center; padding: 20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <div style="font-weight:800; font-size:0.9rem; color:var(--accent-blue);">
