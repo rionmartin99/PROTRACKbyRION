@@ -1,12 +1,12 @@
 <!--
-  Version: 2.5.2
-  Date: 2026-10-18 6:28 PM
+  Version: 2.5.3
+  Date: 2026-10-18 6:46 PM
   Change Log:
+  - 2026-10-18: Fix: Enable allowUpdate on daily dispatches, add no-cors cloud sync fallback, extend timeout to 60s, and optimize image payload [Fix]
   - 2026-10-18: Fix: Replace brain icon with stylized robotic avatar face in R.I.O.N. authentication orb [Fix]
   - 2026-10-18: Fix: Isolate active project list to authenticated engineer and purge unowned legacy projects [Fix]
   - 2026-10-18: Feature: R.I.O.N. avatar identity onboarding, uppercase auto-format, server-authoritative score synchronization, and multi-device profile restore [New Feature]
   - 2026-10-18: Fix: Prevent calendar today styling from wiping photo background and center preview on image [Fix]
-  - 2026-10-18: Fix: Automatically close Polaroid Memory Wall overlay when launching Time-Lapse flipbook [Fix]
 -->
 
 
@@ -4323,6 +4323,9 @@
 
                 const owner = (state.user ? state.user.fullName : '');
                 const enrichedData = { ...data, owner: owner, user: state.user };
+                if (action === 'logEntry') {
+                    enrichedData.allowUpdate = true;
+                }
 
                 // Native Google Apps Script execution
                 if (this.isGasEnvironment()) {
@@ -4347,12 +4350,14 @@
                 // Standalone / Local Web App POST fetch
                 const url = (state.gasWebAppUrl || GAS_WEB_APP_URL).trim();
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for Drive uploads and Sheet mutations
+
+                const payloadStr = JSON.stringify({ action, data: enrichedData, owner: owner, user: state.user });
 
                 return fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action, data: enrichedData, owner: owner, user: state.user }),
+                    body: payloadStr,
                     signal: controller.signal
                 }).then(async (response) => {
                     clearTimeout(timeoutId);
@@ -4362,10 +4367,22 @@
                     } catch(e) {
                         return { status: 'success' };
                     }
-                }).catch(err => {
+                }).catch(async (err) => {
                     clearTimeout(timeoutId);
-                    console.warn('[CloudSync] Web App POST failed:', err);
-                    return { status: 'error', error: err };
+                    console.warn('[CloudSync] Web App POST standard fetch failed, attempting no-cors fallback:', err);
+                    try {
+                        // Fallback using no-cors so Chrome file:/// or strict origin security does not block network dispatch
+                        await fetch(url, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: payloadStr
+                        });
+                        return { status: 'success', fallback: true };
+                    } catch (fallbackErr) {
+                        console.warn('[CloudSync] Web App POST fallback failed:', fallbackErr);
+                        return { status: 'error', error: fallbackErr };
+                    }
                 });
             },
             dispatch(action, data) {
@@ -4727,7 +4744,7 @@
                     const statsText = `⚡ ${streak} DAY STREAK  •  ${progress}% COMPLETED`;
                     ctx.fillText(statsText, padX + photoW, finalFooterY);
 
-                    resolve(canvas.toDataURL('image/jpeg', 0.92));
+                    resolve(canvas.toDataURL('image/jpeg', 0.80));
                 };
                 img.onerror = () => {
                     resolve(base64Source);
@@ -5810,6 +5827,9 @@
                 active.description = desc;
                 active.startDate = date;
                 active.totalDays = totalDays;
+                if (!active.owner && state.user && state.user.fullName) {
+                    active.owner = state.user.fullName;
+                }
             } else {
                 const newProject = {
                     id: Date.now(),
@@ -7597,7 +7617,8 @@
                 totalPoints: state.globalXP,
                 streak: active.streak,
                 totalDays: active.totalDays || 31,
-                imprintedImage: imprinted
+                imprintedImage: imprinted,
+                allowUpdate: true
             });
 
             e.target.reset(); photo.style.display = 'none';
