@@ -1,12 +1,12 @@
 <!--
-  Version: 2.2.1
-  Date: 2026-10-18 10:25 AM
+  Version: 2.2.2
+  Date: 2026-10-18 10:35 AM
   Change Log:
+  - 2026-10-18: Fix: Calendar resets to current date and month on launch, with reliable date formatting and Today button [Fix]
   - 2026-10-18: Feature: Encrypted locked relics in Relic Vault to keep details, icons, and lore invisible until unlocked [New Feature]
   - 2026-10-18: Feature: Added rotating Weekly Tactical Bounty pool and expanded Relic Vault achievements to 14 relics [New Feature]
   - 2026-10-18: Fix: Enforced strict once-per-day logging with dedicated Today's Dispatch Complete card to prevent score abuse [Fix]
   - 2026-10-17: Fix: Unblocked daily log typing, enabled updating today's log, and fixed clipped companion speech bubble [Fix]
-  - 2026-10-17: Feature: Activity log chips, time-lapse player, native share sheet, mystery crates, and companion sync meter [New Feature]
 -->
 
 
@@ -1882,7 +1882,8 @@
 
         .calendar-box.today {
             border: 2px solid var(--accent-lime);
-            box-shadow: 0 0 15px rgba(190, 255, 51, 0.4);
+            box-shadow: 0 0 15px rgba(190, 255, 51, 0.45);
+            background: rgba(190, 255, 51, 0.08);
         }
 
         .calendar-box.milestone::after {
@@ -2825,11 +2826,14 @@
 
             <div class="calendar-card card">
                 <div class="calendar-header">
-                    <button id="prev-month-btn" class="calendar-nav-btn"><i class="fas fa-chevron-left"></i></button>
-                    <h2 id="calendar-month-year"
-                        style="font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px;">
+                    <button id="prev-month-btn" class="calendar-nav-btn" title="Previous Month"><i class="fas fa-chevron-left"></i></button>
+                    <h2 id="calendar-month-year" onclick="resetCalendarToToday()"
+                        style="font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px; cursor: pointer;" title="Click to jump to Current Month">
                         Calendar</h2>
-                    <button id="next-month-btn" class="calendar-nav-btn"><i class="fas fa-chevron-right"></i></button>
+                    <button id="next-month-btn" class="calendar-nav-btn" title="Next Month"><i class="fas fa-chevron-right"></i></button>
+                    <button type="button" id="calendar-today-btn" onclick="resetCalendarToToday()" class="btn-micro hidden" style="margin-left: 6px; font-weight: 800; font-size: 0.65rem; color: var(--accent-lime); border-color: rgba(190, 255, 51, 0.4);" title="Jump to Current Month">
+                        Today
+                    </button>
                     <button type="button" onclick="openPolaroidWall()" class="btn-micro" style="margin-left:auto; font-weight:700;" title="View all daily polaroids">
                         <i class="fas fa-images"></i> Wall
                     </button>
@@ -4372,6 +4376,11 @@
                 state = { ...state, ...raw };
                 state.gasWebAppUrl = raw.gasWebAppUrl || GAS_WEB_APP_URL;
 
+                // Always ensure calendar rests on current date and month upon loading
+                const nowReal = new Date();
+                state.viewMonth = nowReal.getMonth();
+                state.viewYear = nowReal.getFullYear();
+
                 // Global XP Migration
                 if (state.globalXP === undefined) {
                     state.globalXP = state.projects.reduce((sum, p) => sum + (p.points || 0), 0);
@@ -4440,7 +4449,11 @@
             checkEveningReminderNotification();
         }
         function saveState() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            // Avoid permanently locking a temporary browsed calendar month into localStorage
+            const toSave = { ...state };
+            delete toSave.viewMonth;
+            delete toSave.viewYear;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
             updateUI();
         }
 
@@ -5826,7 +5839,13 @@
                     <i class="fas fa-chevron-right" style="opacity: 0.3;"></i>
                 </div>
             `;
-                    card.onclick = () => { state.activeProjectId = p.id; saveState(); };
+                    card.onclick = () => { 
+                        state.activeProjectId = p.id; 
+                        const n = new Date();
+                        state.viewMonth = n.getMonth();
+                        state.viewYear = n.getFullYear();
+                        saveState(); 
+                    };
                     list.appendChild(card);
                 });
                 document.getElementById('project-count').innerText = `${state.projects.length}/5`;
@@ -6682,13 +6701,38 @@
                 DeepFocus.updateDisplay();
             }
         }
+        function resetCalendarToToday() {
+            const now = new Date();
+            state.viewMonth = now.getMonth();
+            state.viewYear = now.getFullYear();
+            renderCalendar();
+            SoundEngine.playSelect();
+        }
+
         function renderCalendar() {
             const grid = document.querySelector('.calendar-grid'); if (!grid) return;
             const headers = grid.querySelectorAll('.calendar-day-label'); grid.innerHTML = ""; headers.forEach(h => grid.appendChild(h));
 
-            // Carousel state
-            if (state.viewMonth === undefined) { const n = new Date(); state.viewMonth = n.getMonth(); state.viewYear = n.getFullYear(); }
+            const realNow = new Date();
+            const curRealMonth = realNow.getMonth();
+            const curRealYear = realNow.getFullYear();
+
+            // Default to current date/month if not explicitly browsing
+            if (state.viewMonth === undefined || state.viewMonth === null || isNaN(state.viewMonth)) {
+                state.viewMonth = curRealMonth;
+                state.viewYear = curRealYear;
+            }
             const vm = state.viewMonth; const vy = state.viewYear;
+
+            // Toggle "Today" jump button if viewing past or future months
+            const todayBtn = document.getElementById('calendar-today-btn');
+            if (todayBtn) {
+                if (vm !== curRealMonth || vy !== curRealYear) {
+                    todayBtn.classList.remove('hidden');
+                } else {
+                    todayBtn.classList.add('hidden');
+                }
+            }
 
             const label = document.getElementById('calendar-month-year');
             if (label) label.innerText = new Date(vy, vm).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).toUpperCase();
@@ -6703,7 +6747,10 @@
             const milestones = []; if (active && active.startDate) {
                 const start = new Date(active.startDate); const goals = getProjectGoals(active); Object.keys(goals).forEach(p => { if (goals[p].isMain) { const d = new Date(start); d.setDate(start.getDate() + goals[p].targetDay - 1); milestones.push(d.toLocaleDateString('en-CA')); } });
             }
-            const todayStr = new Date().toLocaleDateString('en-CA');
+            const todayYear = realNow.getFullYear();
+            const todayMonth = realNow.getMonth();
+            const todayDate = realNow.getDate();
+            const todayStr = `${todayYear}-${(todayMonth + 1).toString().padStart(2, '0')}-${todayDate.toString().padStart(2, '0')}`;
 
             for (let i = 0; i < offset; i++) { const div = document.createElement('div'); div.className = "calendar-box intensity-0"; div.style.visibility = "hidden"; grid.appendChild(div); }
             for (let d = 1; d <= days; d++) {
