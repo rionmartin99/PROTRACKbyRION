@@ -1,13 +1,14 @@
 /**
- * Version: 1.0.2
- * Date: 2026-10-18 10:25 PM
+ * Version: 1.0.3
+ * Date: 2026-11-01 4:45 PM
  * Change Log:
+ * - 2026-11-01 4:45 PM: Fix: Bump cache version to v2.6.4 to deliver streak persistence and feature fixes [Fix]
  * - 2026-10-18 10:25 PM: Fix: Bypass Google Drive and Google Usercontent domains from SW caching, bump cache to v2.6.3 [Fix]
  * - 2026-10-18 10:10 PM: Fix: Bump cache name to v2.6.2 to force mobile cache refresh and asset invalidation [Fix]
  * - 2026-10-18 2:40 PM: Feature: Progressive Web App Service Worker with app shell pre-caching and offline support [New Feature]
  */
 
-const CACHE_NAME = 'protrack-v2.6.3';
+const CACHE_NAME = 'protrack-v2.6.4';
 const STATIC_ASSETS = [
     './',
     './index.html',

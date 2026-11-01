@@ -1,12 +1,12 @@
 <!--
-  Version: 2.6.2
-  Date: 2026-10-18 10:25 PM
+  Version: 2.6.3
+  Date: 2026-11-01 4:45 PM
   Change Log:
+  - 2026-11-01 4:45 PM: Fix: Fix streak disappearing after cloud sync, self-heal streak from log history, fix SWOT IDs, milestone gate, and local date parsing [Fix]
   - 2026-10-18 10:25 PM: Fix: Add silent cloud sync on app launch, no-referrer image bypass in sw.js, and direct photo rendering [Fix]
   - 2026-10-18 10:05 PM: Fix: Fix undefined DB.storeName crash on project deletion and add case-insensitive confirmation [Fix]
   - 2026-10-18 9:35 PM: Fix: Enable cross-device photo sync, direct Drive thumbnail resolution, and self-healing cloud upload [Fix]
   - 2026-10-18 9:10 PM: Fix: Streamline dashboard header, declutter top view, remove redundant titles, and space calendar navigation [Fix]
-  - 2026-10-18 9:02 PM: Fix: Rebalance and greatly reduce Tactical Supply Crate drop probability to 5% and re-tune loot pool [Fix]
 -->
 
 
@@ -4327,7 +4327,8 @@
             // Craftsmanship & Documentation
             { id: 'master-chronicler', title: 'Master Chronicler', desc: 'Archive 10 or more visual photo dispatches in your Polaroid Wall', icon: 'fa-camera-retro', color: '#fbbf24' },
             { id: 'technical-scribe', title: 'Technical Scribe', desc: 'Write an exceptionally thorough work accomplishment entry (150+ characters)', icon: 'fa-feather-alt', color: '#c084fc' },
-            { id: 'timelapse-director', title: 'Time-Lapse Director', desc: 'Assemble and view a playback of your project build evolution', icon: 'fa-film', color: '#f472b6' }
+            { id: 'timelapse-director', title: 'Time-Lapse Director', desc: 'Assemble and view a playback of your project build evolution', icon: 'fa-film', color: '#f472b6' },
+            { id: 'the-polymath', title: 'The Polymath', desc: 'Simultaneously manage 3 or more active engineering projects', icon: 'fa-layer-group', color: '#34d399' }
         ];
 
         const WEEKLY_BOUNTY_POOL = {
@@ -4497,17 +4498,126 @@
             notificationsEnabled: false
         };
 
+        function toLocalDateKey(val) {
+            if (!val) return '';
+            if (typeof val === 'string') {
+                const trimmed = val.trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+                const d = new Date(trimmed);
+                if (!isNaN(d.getTime())) return d.toLocaleDateString('en-CA');
+                return '';
+            }
+            if (val instanceof Date && !isNaN(val.getTime())) {
+                return val.toLocaleDateString('en-CA');
+            }
+            return '';
+        }
+
+        function parseLocalDateMidnight(val) {
+            const key = toLocalDateKey(val);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+                const [y, m, d] = key.split('-').map(Number);
+                return new Date(y, m - 1, d, 0, 0, 0, 0);
+            }
+            const d = new Date(val || Date.now());
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+
+        function getEntryDateKey(h) {
+            if (!h) return '';
+            return toLocalDateKey(h.localDate) || toLocalDateKey(h.date);
+        }
+
+        function hasLogOnDate(history, dateKey) {
+            if (!Array.isArray(history) || !dateKey) return false;
+            return history.some(h => getEntryDateKey(h) === dateKey);
+        }
+
+        function findLogOnDate(history, dateKey) {
+            if (!Array.isArray(history) || !dateKey) return undefined;
+            return history.find(h => getEntryDateKey(h) === dateKey);
+        }
+
+        function computeStreakFromHistory(p) {
+            if (!p || !Array.isArray(p.history) || p.history.length === 0) return 0;
+            const activeDates = new Set();
+            p.history.forEach(h => {
+                const k = getEntryDateKey(h);
+                if (k) activeDates.add(k);
+            });
+            if (Array.isArray(p.frozenDates)) {
+                p.frozenDates.forEach(fd => {
+                    const k = toLocalDateKey(fd);
+                    if (k) activeDates.add(k);
+                });
+            }
+            if (activeDates.size === 0) return 0;
+
+            const checkDate = new Date();
+            checkDate.setHours(0, 0, 0, 0);
+            const todayKey = checkDate.toLocaleDateString('en-CA');
+
+            if (!activeDates.has(todayKey)) {
+                checkDate.setDate(checkDate.getDate() - 1);
+                const yestKey = checkDate.toLocaleDateString('en-CA');
+                if (!activeDates.has(yestKey)) {
+                    return 0;
+                }
+            }
+
+            let streak = 0;
+            while (true) {
+                const key = checkDate.toLocaleDateString('en-CA');
+                if (activeDates.has(key)) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+            return streak;
+        }
+
         function ensureProjectIntegrity(p) {
             if (!p || typeof p !== 'object') return p;
             if (!Array.isArray(p.history)) p.history = [];
             if (!Array.isArray(p.completedMainGoals)) p.completedMainGoals = [];
             if (!Array.isArray(p.inventory)) p.inventory = [];
+            if (!Array.isArray(p.frozenDates)) p.frozenDates = [];
             if (p.progress === undefined || p.progress === null || isNaN(p.progress)) p.progress = 0;
             if (p.streak === undefined || p.streak === null || isNaN(p.streak)) p.streak = 0;
             if (p.points === undefined || p.points === null || isNaN(p.points)) p.points = 0;
             if (!p.totalDays) p.totalDays = 31;
+            if (p.startDate) {
+                const normStart = toLocalDateKey(p.startDate);
+                if (normStart) p.startDate = normStart;
+            } else {
+                p.startDate = new Date().toLocaleDateString('en-CA');
+            }
             if (p.clockStartedAt === undefined) p.clockStartedAt = null;
             if (p.clockTotalSeconds === undefined) p.clockTotalSeconds = 0;
+
+            let latestLogDateKey = '';
+            p.history.forEach(h => {
+                if (h && typeof h === 'object') {
+                    const k = getEntryDateKey(h);
+                    if (k) {
+                        h.localDate = k;
+                        if (!latestLogDateKey || k > latestLogDateKey) latestLogDateKey = k;
+                    }
+                }
+            });
+
+            const curLastKey = toLocalDateKey(p.lastLogDate);
+            if (latestLogDateKey && (!curLastKey || latestLogDateKey > curLastKey)) {
+                p.lastLogDate = latestLogDateKey;
+            }
+
+            const historyStreak = computeStreakFromHistory(p);
+            if (historyStreak > (p.streak || 0)) {
+                p.streak = historyStreak;
+            }
             return p;
         }
 
@@ -4763,12 +4873,13 @@
                         } else if (res && (res.status === 'success' || res.status === 'ignored')) {
                             await DB.delete('syncQueue', item.id);
                             if (res.status === 'success' && res.totalPoints !== undefined) {
-                                state.globalXP = res.totalPoints;
+                                state.globalXP = Math.max(state.globalXP || 0, Number(res.totalPoints) || 0);
                                 const active = getActiveProject();
                                 if (active) {
-                                    if (res.streak !== undefined) active.streak = res.streak;
-                                    if (res.progress !== undefined) active.progress = res.progress;
-                                    active.points = res.totalPoints;
+                                    const histStreak = computeStreakFromHistory(active);
+                                    if (res.streak !== undefined) active.streak = Math.max(active.streak || 0, Number(res.streak) || 0, histStreak);
+                                    if (res.progress !== undefined) active.progress = Math.max(active.progress || 0, Number(res.progress) || 0);
+                                    active.points = Math.max(active.points || 0, Number(res.totalPoints) || 0);
                                 }
                                 saveState();
                                 scheduleUpdateUI();
@@ -5104,8 +5215,8 @@
                         const active = (typeof getActiveProject === 'function' ? getActiveProject() : null) || {};
                         const projectName = active.name || 'ProTrack Project';
                         const projectDay = (typeof getProjectDay === 'function' ? getProjectDay() : 1);
-                        const streak = active.streak || 0;
-                        const progress = Math.round(active.progress || 0);
+                        const streak = (extraMeta && typeof extraMeta.streak === 'number') ? extraMeta.streak : ((active.streak || 0) + 1);
+                        const progress = (extraMeta && typeof extraMeta.progress === 'number') ? Math.round(extraMeta.progress) : Math.round(active.progress || 0);
                         const hours = (extraMeta && typeof extraMeta.hours === 'number') ? extraMeta.hours : 0;
                         const logDate = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
@@ -5683,22 +5794,50 @@
 
         // ==================== STREAK LOSS AVERSION & FREEZES ====================
         function checkStreakIntegrity(active) {
-            if (!active || !active.lastLogDate) return;
-            const last = new Date(active.lastLogDate);
-            last.setHours(0, 0, 0, 0);
+            if (!active) return;
+            ensureProjectIntegrity(active);
+
+            let lastKey = toLocalDateKey(active.lastLogDate);
+            if (Array.isArray(active.history) && active.history.length > 0) {
+                active.history.forEach(h => {
+                    const k = getEntryDateKey(h);
+                    if (k && (!lastKey || k > lastKey)) lastKey = k;
+                });
+            }
+            if (!lastKey) return;
+            active.lastLogDate = lastKey;
+
+            const last = parseLocalDateMidnight(lastKey);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const daysSince = Math.floor((today - last) / (1000 * 60 * 60 * 24));
+            if (!last) return;
+            const daysSince = Math.round((today - last) / (1000 * 60 * 60 * 24));
 
-            if (daysSince === 1 || daysSince === 0) return;
+            if (daysSince <= 1) {
+                const histStreak = computeStreakFromHistory(active);
+                if (histStreak > (active.streak || 0)) {
+                    active.streak = histStreak;
+                    saveState();
+                } else if ((active.streak || 0) === 0 && Array.isArray(active.history) && active.history.length > 0) {
+                    active.streak = Math.max(1, histStreak);
+                    saveState();
+                }
+                return;
+            }
 
             if (daysSince === 2) {
                 if ((state.streakFreezes || 0) > 0) {
                     state.streakFreezes--;
-                    const yesterday = new Date();
+                    const yesterday = new Date(today);
                     yesterday.setDate(yesterday.getDate() - 1);
-                    active.lastLogDate = yesterday.toISOString();
+                    const yestKey = toLocalDateKey(yesterday);
+                    if (!Array.isArray(active.frozenDates)) active.frozenDates = [];
+                    if (!active.frozenDates.includes(yestKey)) active.frozenDates.push(yestKey);
+                    active.lastLogDate = yestKey;
+                    const histStreak = computeStreakFromHistory(active);
+                    active.streak = Math.max(active.streak || 1, histStreak, 1);
                     saveState();
+                    CloudSync.syncProjectDebounced(active);
                     unlockRelic('cryo-survivor');
                     showAlert('🛡️ Streak Freeze Activated!', `A Streak Freeze Shield was consumed to protect your ${active.streak}-day streak! You have ${state.streakFreezes} shield(s) remaining.`);
                     SoundEngine.playSuccess();
@@ -5706,10 +5845,11 @@
                 }
             }
 
-            if (daysSince > 1 && active.streak > 0) {
+            if (daysSince > 1 && (active.streak || 0) > 0) {
                 active.streak = 0;
                 state.comebackBonusEligible = true;
                 saveState();
+                CloudSync.syncProjectDebounced(active);
             }
         }
 
@@ -6043,7 +6183,7 @@
             SoundEngine.playSelect();
             const active = getActiveProject();
             const todayStr = new Date().toLocaleDateString('en-CA');
-            const hasLogged = active && (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+            const hasLogged = active && hasLogOnDate(active.history, todayStr);
             
             const pokeQuotes = hasLogged ? [
                 "Core telemetry fully charged, Engineer! Ready for tomorrow's build.",
@@ -6162,12 +6302,13 @@
             if (!modal) return;
 
             const now = new Date();
-            const oneWeekAgo = new Date();
-            oneWeekAgo.setDate(now.getDate() - 7);
+            now.setHours(0, 0, 0, 0);
+            const oneWeekAgo = new Date(now);
+            oneWeekAgo.setDate(now.getDate() - 6);
 
             const recentLogs = (active.history || []).filter(h => {
-                const d = new Date(h.localDate || h.date);
-                return d >= oneWeekAgo;
+                const d = parseLocalDateMidnight(getEntryDateKey(h) || h.date);
+                return d && d >= oneWeekAgo;
             });
 
             const daysLogged = recentLogs.length;
@@ -6350,7 +6491,7 @@
             const active = getActiveProject();
             if (!active) return;
             const todayStr = new Date().toLocaleDateString('en-CA');
-            const aldyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+            const aldyLogged = hasLogOnDate(active.history, todayStr);
             const now = new Date();
             if (!aldyLogged && now.getHours() >= 20 && localStorage.getItem('last_reminder_notif') !== todayStr) {
                 localStorage.setItem('last_reminder_notif', todayStr);
@@ -6392,19 +6533,19 @@
         });
         function showSetup() {
             document.getElementById('setup-page').classList.remove('hidden');
-            const today = new Date().toISOString().split('T')[0];
+            const today = new Date().toLocaleDateString('en-CA');
             document.getElementById('setup-start-date').value = today;
             setSetupDuration(31);
         }
         document.getElementById('set-today-btn').addEventListener('click', () => {
-            document.getElementById('setup-start-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('setup-start-date').value = new Date().toLocaleDateString('en-CA');
         });
         document.getElementById('setup-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const mode = e.target.dataset.mode || 'create';
             const name = document.getElementById('setup-project-name').value;
             const desc = document.getElementById('setup-project-desc').value;
-            const date = document.getElementById('setup-start-date').value;
+            const date = document.getElementById('setup-start-date').value || new Date().toLocaleDateString('en-CA');
             const totalDays = parseInt(document.getElementById('setup-total-days').value) || 31;
 
             if (mode === 'edit') {
@@ -6608,6 +6749,7 @@
             if (!name) return;
             if (!active.inventory) active.inventory = [];
             active.inventory.push({ name, cost, status });
+            checkRelicUnlocks(null, active);
             saveState();
             renderInventory();
             document.getElementById('inv-name').value = "";
@@ -6631,19 +6773,29 @@
                 items: active.inventory
             });
         }
-        function getProgressCap() { return 100; }
+        function getProgressCap() {
+            return getNextMilestone();
+        }
         function getNextMilestone() {
             const active = getActiveProject();
-            const p = active.progress || 0;
-            if (p < 30) return 30; if (p < 60) return 60; if (p < 80) return 80; return 100;
+            if (!active) return 30;
+            const milestones = [30, 60, 80, 100];
+            for (let i = 0; i < milestones.length; i++) {
+                const m = milestones[i];
+                if (!isMilestoneValidated(m)) {
+                    return m;
+                }
+            }
+            return 100;
         }
         function isMilestoneValidated(m) {
             const active = getActiveProject();
+            if (!active) return false;
             const goals = getProjectGoals(active);
-            const goal = Object.values(goals).find(g => g.isMain && Object.keys(goals).find(k => goals[k] === g) == m);
-            if (!goal) return true;
+            const goal = goals[m];
+            if (!goal || !goal.isMain) return true;
             const completed = (active.completedMainGoals || []).find(g => g.goalId === goal.goalId);
-            return completed && completed.rating >= 80;
+            return Boolean(completed && completed.rating >= 80);
         }
         function updateProgressPreview() {
             const activeP = getActiveProject();
@@ -6724,18 +6876,26 @@
         function getProjectDay() {
             const active = getActiveProject();
             if (!active || !active.startDate) return 1;
-            const start = new Date(active.startDate); start.setHours(0, 0, 0, 0);
-            const now = new Date(); now.setHours(0, 0, 0, 0);
-            const diff = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+            const start = parseLocalDateMidnight(active.startDate) || new Date(active.startDate);
+            start.setHours(0, 0, 0, 0);
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const diff = Math.round((now - start) / (1000 * 60 * 60 * 24));
             return Math.max(1, diff + 1);
         }
         function updateUI() {
             const active = getActiveProject();
             if (!active) return;
 
+            checkStreakIntegrity(active);
+
             const projectDay = getProjectDay();
             const totalDays = active.totalDays || 31;
             const goals = getProjectGoals(active);
+
+            state.level = Math.max(1, Math.floor((state.globalXP || 0) / 500) + 1);
+            const bgLevel = document.getElementById('bg-level');
+            if (bgLevel) bgLevel.innerText = `LVL ${state.level.toString().padStart(2, '0')}`;
 
             const nameDisp = document.getElementById('project-name-display'); if (nameDisp) nameDisp.innerText = active.name;
             const dashName = document.getElementById('dashboard-project-name'); if (dashName) dashName.innerText = active.name;
@@ -6751,6 +6911,12 @@
             const freezeCountEl = document.getElementById('streak-freeze-count');
             if (freezeCountEl) freezeCountEl.innerText = state.streakFreezes !== undefined ? state.streakFreezes : 1;
 
+            const nextM = getNextMilestone();
+            const nextMPercentEl = document.getElementById('next-milestone-percent');
+            const nextMLabelEl = document.getElementById('next-milestone-label');
+            if (nextMPercentEl) nextMPercentEl.innerText = `${nextM}%`;
+            if (nextMLabelEl && goals[nextM]) nextMLabelEl.innerText = goals[nextM].title;
+
             // Update Companion Sync / Battery Tag
             const syncTag = document.getElementById('companion-sync-tag');
             const syncPctEl = document.getElementById('companion-sync-pct');
@@ -6759,8 +6925,8 @@
                 const yesterday = new Date();
                 yesterday.setDate(yesterday.getDate() - 1);
                 const yestStr = yesterday.toLocaleDateString('en-CA');
-                const hasLoggedToday = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
-                const hasLoggedYesterday = (active.history || []).some(h => (h.localDate === yestStr) || (h.date && h.date.split('T')[0] === yestStr));
+                const hasLoggedToday = hasLogOnDate(active.history, todayStr);
+                const hasLoggedYesterday = hasLogOnDate(active.history, yestStr);
 
                 syncTag.classList.remove('sync-dimmed', 'sync-critical');
                 if (hasLoggedToday) {
@@ -6777,7 +6943,6 @@
                 }
             }
 
-            checkStreakIntegrity(active);
             checkActiveBlocker(active);
             renderWeeklyQuests();
 
@@ -6785,7 +6950,7 @@
             if (riskBanner) {
                 const curHour = new Date().getHours();
                 const todayStr = new Date().toLocaleDateString('en-CA');
-                const hasLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+                const hasLogged = hasLogOnDate(active.history, todayStr);
                 if (!hasLogged && (active.streak || 0) > 0 && curHour >= 18) {
                     riskBanner.classList.remove('hidden');
                     const rc = document.getElementById('risk-streak-count');
@@ -6835,7 +7000,7 @@
             }
 
             const todayStr = new Date().toLocaleDateString('en-CA');
-            const todayEntry = (active.history || []).find(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+            const todayEntry = findLogOnDate(active.history, todayStr);
             const aldyLogged = !!todayEntry;
             const todayDispatchCard = document.getElementById('today-dispatch-card');
             const logFormCard = document.getElementById('log-form-card');
@@ -7071,38 +7236,69 @@
             const active = getActiveProject();
             if (!active) return;
             const projectDay = getProjectDay();
-            const expected = getExpectedProgress(projectDay);
+            const expected = getExpectedProgress(projectDay, active);
             const progress = active.progress || 0;
+            const goals = getProjectGoals(active);
 
-            const sEl = document.getElementById('swot-s');
-            if (sEl) {
-                if (active.streak >= 3) sEl.innerHTML = "<b>STRENGTH</b><br>High Momentum Streak";
-                else if (progress > expected + 5) sEl.innerHTML = "<b>STRENGTH</b><br>Leading Schedule";
-                else sEl.innerHTML = "<b>STRENGTH</b><br>Stable Core";
+            const strengths = [];
+            if ((active.streak || 0) >= 3) strengths.push(`High Momentum (${active.streak}-day streak)`);
+            if (progress >= expected + 5) strengths.push(`Ahead of schedule (+${Math.round(progress - expected)}%)`);
+            if (Array.isArray(active.completedMainGoals) && active.completedMainGoals.length > 0) {
+                strengths.push(`${active.completedMainGoals.length} Milestone Gate(s) Validated`);
             }
+            if (strengths.length === 0) strengths.push("Stable Core Telemetry");
 
-            const wEl = document.getElementById('swot-w');
-            if (wEl) {
-                if (progress < expected - 8) wEl.innerHTML = "<b>WEAKNESS</b><br>Lagging Schedule";
-                else if (!active.inventory || active.inventory.length < 3) wEl.innerHTML = "<b>WEAKNESS</b><br>Thin BOM Data";
-                else wEl.innerHTML = "<b>WEAKNESS</b><br>None Identified";
+            const weaknesses = [];
+            if (progress < expected - 8) weaknesses.push(`Behind schedule (-${Math.round(expected - progress)}%)`);
+            if (!active.inventory || active.inventory.length < 3) weaknesses.push("Thin BOM Inventory (< 3 parts)");
+            const totalHours = (active.history || []).reduce((acc, h) => acc + (parseFloat(h.journal?.hours) || 0), 0);
+            if ((active.history || []).length > 0 && totalHours / active.history.length < 1.0) {
+                weaknesses.push("Low average daily focus time (< 1.0h)");
             }
+            if (weaknesses.length === 0) weaknesses.push("No critical weaknesses identified");
 
-            const oEl = document.getElementById('swot-o');
-            if (oEl) {
-                if (state.globalXP > 5000) oEl.innerHTML = "<b>OPPORTUNITY</b><br>XP Surplus Ready";
-                else if (progress < 60) oEl.innerHTML = "<b>OPPORTUNITY</b><br>Hardware Goal Ahead";
-                else oEl.innerHTML = "<b>OPPORTUNITY</b><br>Optimization Phase";
+            const opportunities = [];
+            if ((state.globalXP || 0) >= 250 && (state.streakFreezes || 0) < 2) {
+                opportunities.push("XP available for Streak Freeze Shield");
             }
+            const nextM = getNextMilestone();
+            if (progress >= nextM && !isMilestoneValidated(nextM)) {
+                opportunities.push(`Ready for ${nextM}% Peer Review validation`);
+            } else if (goals[nextM]) {
+                opportunities.push(`Next target: ${goals[nextM].title} (${nextM}%)`);
+            }
+            if (opportunities.length === 0) opportunities.push("System Optimization Phase");
 
-            const tEl = document.getElementById('swot-t');
-            if (tEl) {
-                const recentLogs = (active.history || []).slice(-5);
-                const blockers = recentLogs.filter(l => l.journal && l.journal.stuck).length;
-                const goals = getProjectGoals(active);
-                if (blockers >= 2) tEl.innerHTML = "<b>THREAT</b><br>Chronic Blockers";
-                else if (projectDay > goals[80].targetDay && progress < 80) tEl.innerHTML = "<b>THREAT</b><br>Deadline Risk";
-                else tEl.innerHTML = "<b>THREAT</b><br>Safe Trajectory";
+            const threats = [];
+            const recentLogs = (active.history || []).slice(-5);
+            const unresolvedBlockers = recentLogs.filter(l => l && l.journal && l.journal.stuck && l.journal.stuck.trim() && !l.blockerResolved).length;
+            if (unresolvedBlockers >= 2) threats.push(`${unresolvedBlockers} unresolved technical blockers`);
+            else if (unresolvedBlockers === 1) threats.push("1 active blocker awaiting resolution");
+            if (projectDay > goals[80].targetDay && progress < 80) threats.push("Final deadline compression risk");
+            if ((state.streakFreezes || 0) === 0 && (active.streak || 0) >= 3) threats.push("Zero Streak Freeze Shields remaining");
+            if (threats.length === 0) threats.push("Nominal trajectory — low risk");
+
+            const sList = document.getElementById('swot-strengths');
+            if (sList) sList.innerHTML = strengths.map(item => `<li>${item}</li>`).join('');
+            const wList = document.getElementById('swot-weaknesses');
+            if (wList) wList.innerHTML = weaknesses.map(item => `<li>${item}</li>`).join('');
+            const oList = document.getElementById('swot-opportunities');
+            if (oList) oList.innerHTML = opportunities.map(item => `<li>${item}</li>`).join('');
+            const tList = document.getElementById('swot-threats');
+            if (tList) tList.innerHTML = threats.map(item => `<li>${item}</li>`).join('');
+
+            const compSummary = document.getElementById('completion-summary');
+            if (compSummary) {
+                if (progress >= 100 || active.completed) {
+                    compSummary.classList.remove('hidden');
+                    const rankObj = calculateProjectRank(active);
+                    const finalRatingEl = document.getElementById('final-rating-val');
+                    const totalDaysEl = document.getElementById('total-days-val');
+                    if (finalRatingEl) finalRatingEl.innerText = `${rankObj.score}% (${rankObj.rank})`;
+                    if (totalDaysEl) totalDaysEl.innerText = `${(active.history || []).length}d`;
+                } else {
+                    compSummary.classList.add('hidden');
+                }
             }
         }
 
@@ -7240,14 +7436,17 @@
         function buyTheme(id) {
             const theme = THEMES[id];
             if (!theme) return;
-            if (state.globalXP < theme.price) return showAlert('⚡ Insufficient XP', `You need ${theme.price} XP to unlock this theme. Keep logging to earn more!`);
-            if (confirm(`Unlock ${theme.name} for ${theme.price} XP?`)) {
-                state.globalXP -= theme.price; state.unlockedThemes.push(id);
-                applyTheme(id); SoundEngine.playLevelUp();
-                const xpDisp = document.getElementById('market-xp-display');
-                if (xpDisp) xpDisp.innerText = `${state.globalXP} XP`;
-                updateUI();
+            if ((state.globalXP || 0) < theme.price) return showAlert('⚡ Insufficient XP', `You need ${theme.price} XP to unlock this theme. Keep logging to earn more!`);
+            if (!Array.isArray(state.unlockedThemes)) state.unlockedThemes = ['cyber'];
+            if (!state.unlockedThemes.includes(id)) {
+                state.globalXP -= theme.price;
+                state.unlockedThemes.push(id);
             }
+            applyTheme(id);
+            SoundEngine.playLevelUp();
+            openMarket();
+            updateUI();
+            showAlert('🎨 Theme Unlocked!', `${theme.name} has been unlocked and applied to your interface!`);
         }
 
         function applyTheme(id) {
@@ -7259,6 +7458,10 @@
             if (theme.dark === false) { document.documentElement.style.setProperty('--text-main', '#000'); document.documentElement.style.setProperty('--text-secondary', '#666'); }
             else { document.documentElement.style.setProperty('--text-main', '#fff'); document.documentElement.style.setProperty('--text-secondary', '#929296'); }
             saveState();
+            const marketModal = document.getElementById('market-modal');
+            if (marketModal && !marketModal.classList.contains('hidden')) {
+                openMarket();
+            }
         }
 
         function exportInventoryCSV() {
@@ -7434,8 +7637,8 @@
                 form.dataset.mode = 'create';
                 form.reset();
                 document.querySelector('#setup-page h1').innerText = "Initial Setup";
-                document.getElementById('close-setup-btn').style.display = 'flex';
-                document.getElementById('setup-page').classList.remove('hidden');
+                document.getElementById('close-setup-btn').style.display = state.projects && state.projects.length > 0 ? 'flex' : 'none';
+                showSetup();
             };
 
             DeepFocus.init();
@@ -7848,15 +8051,16 @@
             const logMap = new Map();
             (active.history || []).forEach(h => {
                 if (h) {
-                    if (h.localDate) logMap.set(h.localDate, h);
-                    if (h.date) logMap.set(h.date.split('T')[0], h);
+                    const key = getEntryDateKey(h);
+                    if (key) logMap.set(key, h);
+                    if (h.localDate && /^\d{4}-\d{2}-\d{2}$/.test(h.localDate)) logMap.set(h.localDate, h);
                 }
             });
 
             const milestones = new Set();
             const goals = getProjectGoals(active);
             if (active && active.startDate) {
-                const start = new Date(active.startDate);
+                const start = parseLocalDateMidnight(active.startDate) || new Date(active.startDate);
                 Object.keys(goals).forEach(p => {
                     if (goals[p].isMain) {
                         const d = new Date(start);
@@ -7918,7 +8122,7 @@
                     div.classList.add('milestone');
                     const mainKey = Object.keys(goals).find(k => {
                         const g = goals[k]; if (!g.isMain) return false;
-                        const startDate = new Date(active.startDate);
+                        const startDate = parseLocalDateMidnight(active.startDate) || new Date(active.startDate);
                         const mDate = new Date(startDate); mDate.setDate(startDate.getDate() + g.targetDay - 1);
                         return mDate.toLocaleDateString('en-CA') === dateStr;
                     });
@@ -8010,7 +8214,7 @@
         async function viewDayDetails(date, targetDiv) {
             const active = getActiveProject();
             if (!active) return;
-            const log = (active.history || []).find(h => (h.localDate === date) || (h.date && h.date.split('T')[0] === date)); if (!log) return;
+            const log = findLogOnDate(active.history, date); if (!log) return;
             const photo = await DB.get(active.id + "_" + log.day);
             if (photo) {
                 // If there is an image, show the Polaroid overlay preview with close button and 6s auto-close delay
@@ -8105,7 +8309,7 @@
                 }
 
                 const todayStr = new Date().toLocaleDateString('en-CA');
-                const alreadyLogged = (active.history || []).some(h => (h.localDate === todayStr) || (h.date && h.date.split('T')[0] === todayStr));
+                const alreadyLogged = hasLogOnDate(active.history, todayStr);
                 if (alreadyLogged) {
                     showAlert('🔒 Daily Entry Completed', 'You have already logged your work for today. Pro-Track enforces strict once-per-day logging to maintain streak authenticity. Come back tomorrow for your next entry!');
                     return;
@@ -8159,7 +8363,14 @@
                     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving & Submitting Entry...';
                 }
 
-                const imprinted = await imprintImage(photo.src, journal.done, journal.stuck, journal);
+                const nextProgress = Math.min((active.progress || 0) + inc, getProgressCap());
+                const nextStreak = Math.max((active.streak || 0) + 1, 1);
+
+                const imprinted = await imprintImage(photo.src, journal.done, journal.stuck, {
+                    ...journal,
+                    streak: nextStreak,
+                    progress: nextProgress
+                });
                 const projectDay = getProjectDay();
                 await DB.save(active.id + "_" + projectDay, imprinted);
 
@@ -8173,11 +8384,11 @@
                     console.warn('[SubmitLog] Auto-download error:', dlErr);
                 }
 
-                active.progress = Math.min((active.progress || 0) + inc, getProgressCap());
+                active.progress = nextProgress;
                 const logData = {
                     day: projectDay,
                     date: new Date().toISOString(),
-                    localDate: new Date().toLocaleDateString('en-CA'),
+                    localDate: todayStr,
                     inc,
                     journal,
                     imageUrl: ''
@@ -8198,7 +8409,12 @@
                 }
                 const totalAwardedXP = pts + bonusXP;
                 state.globalXP = (state.globalXP || 0) + totalAwardedXP;
-                active.streak = (active.streak || 0) + 1;
+                if (!Array.isArray(active.history)) active.history = [];
+                active.history.push(logData);
+                active.lastLogDate = logData.localDate;
+                active.streak = Math.max(nextStreak, computeStreakFromHistory(active));
+                active.points = Math.max(active.points || 0, state.globalXP || 0);
+                active.clockTotalSeconds = 0;
 
                 if (active.streak % 7 === 0) {
                     state.streakFreezes = Math.min(2, (state.streakFreezes || 0) + 1);
@@ -8228,12 +8444,6 @@
                 if (journal.stuck && journal.stuck.trim()) {
                     recordWeeklyQuestProgress('blockers', 1);
                 }
-
-                // Reset and save
-                active.lastLogDate = logData.date;
-                if (!Array.isArray(active.history)) active.history = [];
-                active.history.push(logData);
-                active.clockTotalSeconds = 0;
 
                 // Persist individual record to IndexedDB historyLogs
                 DB.put('historyLogs', active.id + '_' + projectDay, {
@@ -9042,7 +9252,13 @@
                                 mergedHistory = Array.isArray(sp.history) ? sp.history : [];
                             }
                             const merged = {
+                                ...(local || {}),
                                 ...sp,
+                                progress: Math.max((local && local.progress) || 0, sp.progress || 0),
+                                points: Math.max((local && local.points) || 0, sp.points || 0),
+                                streak: Math.max((local && local.streak) || 0, sp.streak || 0),
+                                lastLogDate: (local && local.lastLogDate) || sp.lastLogDate || null,
+                                frozenDates: (local && Array.isArray(local.frozenDates)) ? local.frozenDates : [],
                                 history: mergedHistory,
                                 completedMainGoals: (local && Array.isArray(local.completedMainGoals) && local.completedMainGoals.length > 0)
                                     ? local.completedMainGoals
@@ -9054,6 +9270,9 @@
                                 clockTotalSeconds: (local && local.clockTotalSeconds !== undefined) ? local.clockTotalSeconds : 0
                             };
                             ensureProjectIntegrity(merged);
+                            if (merged.points > (state.globalXP || 0)) {
+                                state.globalXP = merged.points;
+                            }
                             return merged;
                         });
                     } else {
@@ -9163,18 +9382,9 @@
                             ensureProjectIntegrity(sp);
                             const existing = (state.projects || []).find(p => String(p.id) === String(sp.id));
                             if (existing) {
-                                if (sp.progress !== undefined && sp.progress !== existing.progress) {
-                                    existing.progress = sp.progress;
-                                    hasChanges = true;
-                                }
-                                if (sp.points !== undefined && sp.points !== existing.points) {
-                                    existing.points = sp.points;
-                                    hasChanges = true;
-                                }
-                                if (sp.streak !== undefined && sp.streak !== existing.streak) {
-                                    existing.streak = sp.streak;
-                                    hasChanges = true;
-                                }
+                                let needsCloudRepair = false;
+
+                                // Merge history first so streak & progress integrity checks have complete history
                                 if (!Array.isArray(existing.history) || existing.history.length === 0) {
                                     existing.history = Array.isArray(sp.history) ? sp.history : [];
                                     hasChanges = true;
@@ -9185,7 +9395,8 @@
                                     });
                                 } else if (Array.isArray(sp.history)) {
                                     sp.history.forEach(sh => {
-                                        const match = existing.history.find(eh => Number(eh.day) === Number(sh.day));
+                                        const shKey = getEntryDateKey(sh);
+                                        const match = existing.history.find(eh => Number(eh.day) === Number(sh.day) || (shKey && getEntryDateKey(eh) === shKey));
                                         if (match) {
                                             if (sh.imageUrl && match.imageUrl !== sh.imageUrl) {
                                                 match.imageUrl = sh.imageUrl;
@@ -9201,8 +9412,52 @@
                                         }
                                     });
                                 }
-                                if (!Array.isArray(existing.completedMainGoals) && Array.isArray(sp.completedMainGoals)) existing.completedMainGoals = sp.completedMainGoals;
-                                if (!Array.isArray(existing.inventory) && Array.isArray(sp.inventory)) existing.inventory = sp.inventory;
+
+                                if (sp.progress !== undefined) {
+                                    if (sp.progress > (existing.progress || 0)) {
+                                        existing.progress = sp.progress;
+                                        hasChanges = true;
+                                    } else if ((existing.progress || 0) > sp.progress) {
+                                        needsCloudRepair = true;
+                                    }
+                                }
+                                if (sp.points !== undefined) {
+                                    if (sp.points > (existing.points || 0)) {
+                                        existing.points = sp.points;
+                                        if (sp.points > (state.globalXP || 0)) state.globalXP = sp.points;
+                                        hasChanges = true;
+                                    } else if ((existing.points || 0) > sp.points) {
+                                        needsCloudRepair = true;
+                                    }
+                                }
+
+                                // Protect local streak from stale/zeroed server streak!
+                                const prevStreak = existing.streak || 0;
+                                ensureProjectIntegrity(existing);
+                                const computedStreak = computeStreakFromHistory(existing);
+                                const candidateStreak = Math.max(prevStreak, sp.streak || 0, computedStreak);
+                                if (candidateStreak !== existing.streak) {
+                                    existing.streak = candidateStreak;
+                                    hasChanges = true;
+                                }
+                                // Validate whether the streak actually expired (more than 1 day without freeze)
+                                checkStreakIntegrity(existing);
+                                if ((existing.streak || 0) > (sp.streak || 0)) {
+                                    needsCloudRepair = true;
+                                }
+
+                                if ((!Array.isArray(existing.completedMainGoals) || existing.completedMainGoals.length === 0) && Array.isArray(sp.completedMainGoals) && sp.completedMainGoals.length > 0) {
+                                    existing.completedMainGoals = sp.completedMainGoals;
+                                    hasChanges = true;
+                                }
+                                if ((!Array.isArray(existing.inventory) || existing.inventory.length === 0) && Array.isArray(sp.inventory) && sp.inventory.length > 0) {
+                                    existing.inventory = sp.inventory;
+                                    hasChanges = true;
+                                }
+
+                                if (needsCloudRepair) {
+                                    CloudSync.syncProjectDebounced(existing);
+                                }
                             } else {
                                 if (!Array.isArray(state.projects)) state.projects = [];
                                 state.projects.push(sp);
