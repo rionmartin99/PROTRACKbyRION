@@ -1,14 +1,15 @@
 /**
- * Version: 1.0.3
- * Date: 2026-11-01 4:45 PM
+ * Version: 1.0.4
+ * Date: 2026-11-01 5:10 PM
  * Change Log:
+ * - 2026-11-01 5:10 PM: Feature: Add notificationclick focus handler, Web Push listener, and periodic background streak sync for mobile OS delivery [New Feature]
  * - 2026-11-01 4:45 PM: Fix: Bump cache version to v2.6.4 to deliver streak persistence and feature fixes [Fix]
  * - 2026-10-18 10:25 PM: Fix: Bypass Google Drive and Google Usercontent domains from SW caching, bump cache to v2.6.3 [Fix]
  * - 2026-10-18 10:10 PM: Fix: Bump cache name to v2.6.2 to force mobile cache refresh and asset invalidation [Fix]
  * - 2026-10-18 2:40 PM: Feature: Progressive Web App Service Worker with app shell pre-caching and offline support [New Feature]
  */
 
-const CACHE_NAME = 'protrack-v2.6.4';
+const CACHE_NAME = 'protrack-v2.6.5';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -100,3 +101,88 @@ self.addEventListener('message', (event) => {
         self.skipWaiting();
     }
 });
+
+// ==========================================
+// NATIVE MOBILE NOTIFICATIONS & BACKGROUND SYNC
+// ==========================================
+
+// Notification Click: Focus existing window or launch app on mobile tap
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : './';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            for (let i = 0; i < windowClients.length; i++) {
+                const client = windowClients[i];
+                if ('focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
+});
+
+// Push Notifications: Native system delivery even when app is closed / backgrounded
+self.addEventListener('push', (event) => {
+    let payload = {
+        title: 'ProTrack • Daily Engineering Dispatch',
+        body: "Awaiting today's telemetry dispatch. Don't let your streak break!",
+        icon: 'icon-192.png',
+        badge: 'favicon.ico',
+        tag: 'protrack-push-alert',
+        renotify: true,
+        vibrate: [400, 200, 400, 200, 800],
+        data: { url: './' }
+    };
+
+    if (event.data) {
+        try {
+            const dataObj = event.data.json();
+            payload = Object.assign(payload, dataObj);
+        } catch (e) {
+            payload.body = event.data.text();
+        }
+    }
+
+    event.waitUntil(
+        self.registration.showNotification(payload.title, {
+            body: payload.body,
+            icon: payload.icon || 'icon-192.png',
+            badge: payload.badge || 'favicon.ico',
+            tag: payload.tag || 'protrack-push-alert',
+            renotify: payload.renotify !== false,
+            vibrate: payload.vibrate || [400, 200, 400, 200, 800],
+            data: payload.data || { url: './' }
+        })
+    );
+});
+
+// Periodic Background Sync: Background streak reminders when phone is idle
+self.addEventListener('periodicsync', (event) => {
+    if (event.tag === 'streak-reminder') {
+        event.waitUntil(triggerBackgroundStreakReminder());
+    }
+});
+
+async function triggerBackgroundStreakReminder() {
+    try {
+        const now = new Date();
+        if (now.getHours() >= 19) {
+            await self.registration.showNotification('ProTrack • Streak at Risk!', {
+                body: "Evening check: Don't lose your hard-earned streak! Take 60 seconds to record today's accomplishments.",
+                icon: 'icon-192.png',
+                badge: 'favicon.ico',
+                tag: 'protrack-evening-reminder',
+                renotify: true,
+                vibrate: [400, 200, 400, 200, 800],
+                data: { url: './' }
+            });
+        }
+    } catch (err) {
+        console.warn('[SW] Periodic reminder error:', err);
+    }
+}
