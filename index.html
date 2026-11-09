@@ -1,12 +1,12 @@
 <!--
-  Version: 2.6.4
-  Date: 2026-11-01 5:10 PM
+  Version: 2.6.5
+  Date: 2026-11-09 9:45 AM
   Change Log:
+  - 2026-11-09 9:45 AM: Feature: Restrict visual evidence to standard formats (JPG, PNG, WebP), add client validation with format error alerts, and enhance milestone peer review gate status messaging [New Feature]
   - 2026-11-01 5:10 PM: Feature: Route mobile notifications through Service Worker showNotification, add lock screen click handlers, periodic background streak sync, and Web Push support [New Feature]
   - 2026-11-01 4:45 PM: Fix: Fix streak disappearing after cloud sync, self-heal streak from log history, fix SWOT IDs, milestone gate, and local date parsing [Fix]
   - 2026-10-18 10:25 PM: Fix: Add silent cloud sync on app launch, no-referrer image bypass in sw.js, and direct photo rendering [Fix]
   - 2026-10-18 10:05 PM: Fix: Fix undefined DB.storeName crash on project deletion and add case-insensitive confirmation [Fix]
-  - 2026-10-18 9:35 PM: Fix: Enable cross-device photo sync, direct Drive thumbnail resolution, and self-healing cloud upload [Fix]
 -->
 
 
@@ -3447,8 +3447,8 @@
                         <label>Visual Evidence</label>
                         <div id="photo-dropzone" class="photo-upload">
                             <i class="fas fa-camera fa-2x" style="color: var(--text-secondary);"></i>
-                            <span style="font-size: 0.85rem; color: var(--text-secondary);">Tap to log photo</span>
-                            <input type="file" id="photo-input" accept="image/*" style="display: none;">
+                            <span style="font-size: 0.85rem; color: var(--text-secondary);">Tap or drop photo (JPG, PNG, WebP)</span>
+                            <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" style="display: none;">
                             <img id="photo-preview-img" class="photo-preview" src="">
                         </div>
                     </div>
@@ -8454,6 +8454,14 @@
                     showAlert('📷 Photo Required', 'Visual evidence is required for each log. Tap the camera area to capture or attach your work photo.'); 
                     return; 
                 }
+                const isAcceptableFormat = photoSrc.startsWith('data:image/jpeg') || 
+                                           photoSrc.startsWith('data:image/png') || 
+                                           photoSrc.startsWith('data:image/webp') || 
+                                           photoSrc.startsWith('http');
+                if (!isAcceptableFormat) {
+                    showAlert('📷 Inappropriate Image Format', 'Visual evidence must be in a standard image format (JPG, PNG, or WebP). Please select an appropriate photo.');
+                    return;
+                }
 
                 const rawHours = parseFloat(document.getElementById('hours-worked').value || 0);
                 const rawResults = parseFloat(document.getElementById('results-count').value || 0);
@@ -8598,8 +8606,13 @@
                     allowUpdate: true
                 }).then(syncRes => {
                     if (syncRes && syncRes.imageUrl) {
-                        logData.imageUrl = toDirectDriveUrl(syncRes.imageUrl);
-                        saveState();
+                        if (syncRes.imageUrl.indexOf('http') === 0) {
+                            logData.imageUrl = toDirectDriveUrl(syncRes.imageUrl);
+                            saveState();
+                        } else if (syncRes.imageUrl.indexOf('Upload Error') === 0) {
+                            console.warn('[CloudSync] Photo upload rejected by server:', syncRes.imageUrl);
+                            showAlert('⚠️ Photo Cloud Sync Warning', syncRes.imageUrl + ' Please ensure your photo is in standard JPG, PNG, or WebP format.');
+                        }
                     }
                 }).catch(syncErr => console.warn('[CloudSync] Non-blocking sync error:', syncErr));
 
@@ -8642,20 +8655,113 @@
                 }
             }
         });
-        document.getElementById('photo-dropzone').addEventListener('click', () => document.getElementById('photo-input').click());
-        document.getElementById('photo-input').addEventListener('change', (e) => {
-            const file = e.target.files[0]; if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const preview = document.getElementById('photo-preview-img');
-                    const dropzone = document.getElementById('photo-dropzone');
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
+        const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
+        const ALLOWED_IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp'];
+
+        function validateAndProcessPhotoFile(file) {
+            const preview = document.getElementById('photo-preview-img');
+            const dropzone = document.getElementById('photo-dropzone');
+            const input = document.getElementById('photo-input');
+
+            if (!file) return;
+
+            const name = (file.name || '').toLowerCase();
+            const type = (file.type || '').toLowerCase();
+            const hasValidExt = ALLOWED_IMAGE_EXTS.some(ext => name.endsWith(ext));
+            const hasValidMime = ALLOWED_IMAGE_MIMES.includes(type);
+
+            // Verify common and standard picture format (JPG, PNG, WebP)
+            if (!hasValidMime && !hasValidExt) {
+                showAlert(
+                    '📷 Inappropriate Image Format',
+                    'Please upload your picture in a standard and accepted format (JPG, PNG, or WebP). Formats like HEIC, GIF, SVG, BMP, or non-image documents are not accepted by the system.'
+                );
+                if (input) input.value = '';
+                if (preview) { preview.src = ''; preview.style.display = 'none'; }
+                if (dropzone) dropzone.classList.remove('has-image');
+                return;
+            }
+
+            // Size guard: 15MB max before canvas downsampling
+            if (file.size > 15 * 1024 * 1024) {
+                showAlert('📷 File Too Large', 'Please select an image smaller than 15MB.');
+                if (input) input.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataUrl = e.target.result;
+                const isStandardMime = ALLOWED_IMAGE_MIMES.some(m => dataUrl.startsWith('data:' + m));
+                if (!isStandardMime && !hasValidExt) {
+                    showAlert(
+                        '📷 Inappropriate Image Format',
+                        'Please upload your picture in a standard and accepted format (JPG, PNG, or WebP).'
+                    );
+                    if (input) input.value = '';
+                    if (preview) { preview.src = ''; preview.style.display = 'none'; }
+                    if (dropzone) dropzone.classList.remove('has-image');
+                    return;
+                }
+
+                // Verify the browser can decode the image
+                const testImg = new Image();
+                testImg.onload = () => {
+                    if (preview) {
+                        preview.src = dataUrl;
+                        preview.style.display = 'block';
+                    }
                     if (dropzone) dropzone.classList.add('has-image');
                 };
-                reader.readAsDataURL(file);
-            }
-        });
+                testImg.onerror = () => {
+                    showAlert(
+                        '📷 Corrupt or Unsupported Image',
+                        'Unable to decode the selected file. Please ensure it is a valid, uncorrupted JPG, PNG, or WebP image.'
+                    );
+                    if (input) input.value = '';
+                    if (preview) { preview.src = ''; preview.style.display = 'none'; }
+                    if (dropzone) dropzone.classList.remove('has-image');
+                };
+                testImg.src = dataUrl;
+            };
+            reader.onerror = () => {
+                showAlert('📷 Read Error', 'Failed to read image file. Please try again.');
+                if (input) input.value = '';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        const photoDropzone = document.getElementById('photo-dropzone');
+        const photoInput = document.getElementById('photo-input');
+
+        if (photoDropzone) {
+            photoDropzone.addEventListener('click', () => {
+                if (photoInput) photoInput.click();
+            });
+            photoDropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                photoDropzone.style.borderColor = 'var(--accent-lime)';
+            });
+            photoDropzone.addEventListener('dragleave', () => {
+                photoDropzone.style.borderColor = '';
+            });
+            photoDropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                photoDropzone.style.borderColor = '';
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    validateAndProcessPhotoFile(e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        if (photoInput) {
+            photoInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) {
+                    validateAndProcessPhotoFile(file);
+                }
+            });
+        }
         document.getElementById('volume-toggle').addEventListener('click', () => { state.muted = !state.muted; document.getElementById('volume-toggle').innerHTML = `<i class="fas fa-volume-${state.muted ? 'mute' : 'up'}"></i>`; saveState(); });
         document.getElementById('tutorial-btn').addEventListener('click', () => { document.querySelectorAll('.page').forEach(p => p.classList.add('hidden')); document.getElementById('tutorial').classList.remove('hidden'); SoundEngine.playOpen(); });
         function initReviewPage() {
@@ -8664,7 +8770,28 @@
             const goals = getProjectGoals(active);
             const container = document.getElementById('rubric-container');
             const nextKey = Object.keys(goals).find(p => p <= (active.progress || 0) && goals[p].isMain && !(active.completedMainGoals || []).some(c => c.goalId === goals[p].goalId));
-            if (!nextKey) { container.innerHTML = "<p>Done!</p>"; document.getElementById('submit-review-btn').classList.add('hidden'); return; }
+            if (!nextKey) {
+                const isAllDone = [30, 60, 80, 100].every(m => isMilestoneValidated(m));
+                if (isAllDone) {
+                    container.innerHTML = `<div style="text-align:center; padding:30px 10px;">
+                        <i class="fas fa-check-double" style="font-size:3rem; color:var(--accent-lime); margin-bottom:15px;"></i>
+                        <h3 style="color:var(--text-main); margin-bottom:8px;">All Milestones Validated!</h3>
+                        <p style="color:var(--text-secondary); font-size:0.85rem;">Every major project phase has successfully passed Peer Review with distinction.</p>
+                    </div>`;
+                    document.getElementById('review-context').innerText = "All Phases Complete";
+                } else {
+                    const nextM = getNextMilestone();
+                    const nextGoal = goals[nextM];
+                    container.innerHTML = `<div style="text-align:center; padding:30px 10px;">
+                        <i class="fas fa-lock" style="font-size:3rem; color:var(--warning); margin-bottom:15px;"></i>
+                        <h3 style="color:var(--text-main); margin-bottom:8px;">Gate Locked at ${nextM}%</h3>
+                        <p style="color:var(--text-secondary); font-size:0.85rem;">Reach <b>${nextM}% Progress</b> (Current: ${Math.round(active.progress || 0)}%) through daily dispatches to unlock the <b>${nextGoal ? nextGoal.title : 'Milestone'}</b> Peer Review rubric.</p>
+                    </div>`;
+                    document.getElementById('review-context').innerText = `Awaiting ${nextM}% Progress`;
+                }
+                document.getElementById('submit-review-btn').classList.add('hidden');
+                return;
+            }
             const goal = goals[nextKey]; document.getElementById('review-context').innerText = `Validating: ${goal.title}`; document.getElementById('submit-review-btn').classList.remove('hidden'); container.innerHTML = "";
             RUBRICS[goal.goalId].forEach(c => { const d = document.createElement('div'); d.className = "input-group"; d.innerHTML = `<label>${c.label}</label>${c.desc ? `<p style="font-size:0.78rem; color:var(--text-secondary); line-height:1.45; margin-top:4px; margin-bottom:10px; opacity:0.88;">${c.desc}</p>` : ''}<div class="stat-grid">${[60, 70, 80, 90, 100].map(v => `<button type="button" class="btn btn-secondary rubric-btn" data-id="${c.id}" data-val="${v}">${v}</button>`).join('')}</div>`; container.appendChild(d); });
             let ratings = {}; document.querySelectorAll('.rubric-btn').forEach(btn => btn.addEventListener('click', () => { btn.parentElement.querySelectorAll('.btn').forEach(b => b.style.background = ""); btn.style.background = "var(--accent-lime)"; ratings[btn.dataset.id] = parseInt(btn.dataset.val); let s = 0; RUBRICS[goal.goalId].forEach(c => s += (ratings[c.id] || 0) * c.weight); document.getElementById('review-score').innerText = `${Math.round(s)}%`; SoundEngine.playSelect(); }));
