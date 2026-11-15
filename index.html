@@ -1,12 +1,12 @@
 <!--
-  Version: 2.6.5
-  Date: 2026-11-09 9:45 AM
+  Version: 2.7.1
+  Date: 2026-11-10 4:18 AM
   Change Log:
+  - 2026-11-10 4:18 AM: Fix: Remove admin console navigation links and buttons from student interface [Fix]
+  - 2026-11-10 4:15 AM: Feature: Add Space Race Mission Control navigation button to access admin cohort telemetry and rocket visualizer [New Feature]
   - 2026-11-09 9:45 AM: Feature: Restrict visual evidence to standard formats (JPG, PNG, WebP), add client validation with format error alerts, and enhance milestone peer review gate status messaging [New Feature]
   - 2026-11-01 5:10 PM: Feature: Route mobile notifications through Service Worker showNotification, add lock screen click handlers, periodic background streak sync, and Web Push support [New Feature]
   - 2026-11-01 4:45 PM: Fix: Fix streak disappearing after cloud sync, self-heal streak from log history, fix SWOT IDs, milestone gate, and local date parsing [Fix]
-  - 2026-10-18 10:25 PM: Fix: Add silent cloud sync on app launch, no-referrer image bypass in sw.js, and direct photo rendering [Fix]
-  - 2026-10-18 10:05 PM: Fix: Fix undefined DB.storeName crash on project deletion and add case-insensitive confirmation [Fix]
 -->
 
 
@@ -9506,9 +9506,14 @@
                                 lastLogDate: (local && local.lastLogDate) || sp.lastLogDate || null,
                                 frozenDates: (local && Array.isArray(local.frozenDates)) ? local.frozenDates : [],
                                 history: mergedHistory,
-                                completedMainGoals: (local && Array.isArray(local.completedMainGoals) && local.completedMainGoals.length > 0)
-                                    ? local.completedMainGoals
-                                    : (Array.isArray(sp.completedMainGoals) ? sp.completedMainGoals : []),
+                                completedMainGoals: (() => {
+                                    const localGoals = (local && Array.isArray(local.completedMainGoals)) ? local.completedMainGoals : [];
+                                    const cloudGoals = Array.isArray(sp.completedMainGoals) ? sp.completedMainGoals : [];
+                                    const byId = new Map();
+                                    localGoals.forEach(g => { if (g && g.goalId != null) byId.set(Number(g.goalId), g); });
+                                    cloudGoals.forEach(g => { if (g && g.goalId != null && !byId.has(Number(g.goalId))) byId.set(Number(g.goalId), g); });
+                                    return Array.from(byId.values());
+                                })(),
                                 inventory: (local && Array.isArray(local.inventory) && local.inventory.length > 0)
                                     ? local.inventory
                                     : (Array.isArray(sp.inventory) ? sp.inventory : []),
@@ -9693,9 +9698,14 @@
                                     needsCloudRepair = true;
                                 }
 
-                                if ((!Array.isArray(existing.completedMainGoals) || existing.completedMainGoals.length === 0) && Array.isArray(sp.completedMainGoals) && sp.completedMainGoals.length > 0) {
-                                    existing.completedMainGoals = sp.completedMainGoals;
-                                    hasChanges = true;
+                                if (Array.isArray(sp.completedMainGoals) && sp.completedMainGoals.length > 0) {
+                                    if (!Array.isArray(existing.completedMainGoals)) existing.completedMainGoals = [];
+                                    sp.completedMainGoals.forEach(cg => {
+                                        if (cg && cg.goalId != null && !existing.completedMainGoals.some(lg => Number(lg.goalId) === Number(cg.goalId))) {
+                                            existing.completedMainGoals.push(cg);
+                                            hasChanges = true;
+                                        }
+                                    });
                                 }
                                 if ((!Array.isArray(existing.inventory) || existing.inventory.length === 0) && Array.isArray(sp.inventory) && sp.inventory.length > 0) {
                                     existing.inventory = sp.inventory;
