@@ -4582,10 +4582,36 @@
             return streak;
         }
 
+        function normalizeGoalId(val, title) {
+            if (typeof val === 'number' && val >= 1 && val <= 4) return val;
+            const s = String(val || '').trim().toLowerCase();
+            if (s === '1' || s === 'm1') return 1;
+            if (s === '2' || s === 'm2') return 2;
+            if (s === '3' || s === 'm3') return 3;
+            if (s === '4' || s === 'm4') return 4;
+            const t = String(title || '').toLowerCase();
+            if (t.includes('chassis') || t.includes('30')) return 1;
+            if (t.includes('electronic') || t.includes('power') || t.includes('60')) return 2;
+            if (t.includes('code') || t.includes('sensor') || t.includes('80')) return 3;
+            if (t.includes('complete') || t.includes('100')) return 4;
+            const n = parseInt(s, 10);
+            return (n >= 1 && n <= 4) ? n : null;
+        }
         function ensureProjectIntegrity(p) {
             if (!p || typeof p !== 'object') return p;
             if (!Array.isArray(p.history)) p.history = [];
             if (!Array.isArray(p.completedMainGoals)) p.completedMainGoals = [];
+            else {
+                const normalizedGoals = new Map();
+                p.completedMainGoals.forEach(g => {
+                    if (!g || typeof g !== 'object') return;
+                    const nid = normalizeGoalId(g.goalId, g.title);
+                    if (nid !== null) {
+                        normalizedGoals.set(nid, { ...g, goalId: nid });
+                    }
+                });
+                p.completedMainGoals = Array.from(normalizedGoals.values());
+            }
             if (!Array.isArray(p.inventory)) p.inventory = [];
             if (!Array.isArray(p.frozenDates)) p.frozenDates = [];
             if (p.progress === undefined || p.progress === null || isNaN(p.progress)) p.progress = 0;
@@ -9510,8 +9536,14 @@
                                     const localGoals = (local && Array.isArray(local.completedMainGoals)) ? local.completedMainGoals : [];
                                     const cloudGoals = Array.isArray(sp.completedMainGoals) ? sp.completedMainGoals : [];
                                     const byId = new Map();
-                                    localGoals.forEach(g => { if (g && g.goalId != null) byId.set(Number(g.goalId), g); });
-                                    cloudGoals.forEach(g => { if (g && g.goalId != null && !byId.has(Number(g.goalId))) byId.set(Number(g.goalId), g); });
+                                    localGoals.forEach(g => {
+                                        const nid = g && normalizeGoalId(g.goalId, g.title);
+                                        if (nid !== null) byId.set(nid, { ...g, goalId: nid });
+                                    });
+                                    cloudGoals.forEach(g => {
+                                        const nid = g && normalizeGoalId(g.goalId, g.title);
+                                        if (nid !== null && !byId.has(nid)) byId.set(nid, { ...g, goalId: nid });
+                                    });
                                     return Array.from(byId.values());
                                 })(),
                                 inventory: (local && Array.isArray(local.inventory) && local.inventory.length > 0)
@@ -9701,8 +9733,15 @@
                                 if (Array.isArray(sp.completedMainGoals) && sp.completedMainGoals.length > 0) {
                                     if (!Array.isArray(existing.completedMainGoals)) existing.completedMainGoals = [];
                                     sp.completedMainGoals.forEach(cg => {
-                                        if (cg && cg.goalId != null && !existing.completedMainGoals.some(lg => Number(lg.goalId) === Number(cg.goalId))) {
-                                            existing.completedMainGoals.push(cg);
+                                        const nid = cg && normalizeGoalId(cg.goalId, cg.title);
+                                        if (nid === null) return;
+                                        const localMatch = existing.completedMainGoals.find(lg => normalizeGoalId(lg.goalId, lg.title) === nid);
+                                        if (!localMatch) {
+                                            existing.completedMainGoals.push({ ...cg, goalId: nid });
+                                            hasChanges = true;
+                                        } else if ((Number(cg.rating) || 0) > (Number(localMatch.rating) || 0)) {
+                                            localMatch.rating = cg.rating;
+                                            localMatch.goalId = nid;
                                             hasChanges = true;
                                         }
                                     });
@@ -9729,7 +9768,12 @@
                         if (hasChanges || !silent) {
                             saveState();
                             updateUI();
+                            updateProgressPreview();
                             renderCalendar();
+                            const reviewPage = document.getElementById('review');
+                            if (reviewPage && !reviewPage.classList.contains('hidden')) {
+                                initReviewPage();
+                            }
                         }
                         if (!silent) showAlert('✅ Telemetry Updated', `Synchronized ${res.projects.length} project(s) with Google Sheets.`);
                     } else if (state.projects && state.projects.length > 0) {
